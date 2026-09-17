@@ -1,0 +1,65 @@
+// ═══════════════════════════════════════════════════════════════════
+// config/env.js · validación de variables de entorno
+// Falla rápido si falta algo crítico en lugar de fallar en runtime
+// ═══════════════════════════════════════════════════════════════════
+
+const REQUIRED = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'FIREBASE_PROJECT_ID',
+  'FIREBASE_SERVICE_ACCOUNT'
+];
+
+// MODIFICADO: STRIPE_PRICE_MENSUAL/ANUAL pasaron a OPCIONALES.
+// El checkout ya NO los usa (precio dinámico desde Firestore config/club,
+// patrón SYNOVA). Solo sirven para identificar suscripciones VIEJAS que se
+// crearon con esos Price IDs (esSubBionova) — déjalas en Railway mientras
+// existan suscriptores anteriores a la migración; no crees nuevas.
+const OPTIONAL = [
+  'STRIPE_PRICE_MENSUAL',
+  'STRIPE_PRICE_ANUAL',
+  'NEWSDATA_API_KEY',
+  'RESEND_API_KEY',
+  'MAIL_FROM',
+  'CRON_SECRET',
+  'PANEL_URL',
+  'BUNNY_STREAM_LIBRARY_ID',
+  'BUNNY_TOKEN_AUTH_KEY',
+  'BUNNY_TOKEN_TTL_SECONDS',
+  'PORT'
+];
+
+export function validateEnv() {
+  const missing = REQUIRED.filter(k => !process.env[k]);
+  if (missing.length) {
+    console.error('❌ Variables de entorno faltantes:', missing.join(', '));
+    console.error('   Configúralas en Railway → Settings → Variables');
+    process.exit(1);
+  }
+
+  const missingOptional = OPTIONAL.filter(k => !process.env[k]);
+  if (missingOptional.length) {
+    console.warn('⚠️  Variables opcionales no configuradas:', missingOptional.join(', '));
+    console.warn('   Algunas features estarán deshabilitadas (cron noticias, correo, etc.)');
+  }
+
+  console.log('✅ Variables de entorno validadas');
+}
+
+export const env = {
+  stripeSecret: process.env.STRIPE_SECRET_KEY,
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  stripePriceMensual: process.env.STRIPE_PRICE_MENSUAL,
+  stripePriceAnual: process.env.STRIPE_PRICE_ANUAL,
+  firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'dulcelab-club',
+  firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT,
+  newsdataApiKey: process.env.NEWSDATA_API_KEY,
+  resendApiKey: process.env.RESEND_API_KEY,
+  mailFrom: process.env.MAIL_FROM || 'DulceLab Food <noreply@dulcelabfood.com>',
+  cronSecret: process.env.CRON_SECRET || 'dulcelab-secret-CAMBIA-ESTO-2026',
+  panelUrl: process.env.PANEL_URL || 'https://club.dulcelabfood.com',
+  bunnyStreamLibraryId: process.env.BUNNY_STREAM_LIBRARY_ID || '730368',
+  bunnyTokenAuthKey: process.env.BUNNY_TOKEN_AUTH_KEY || '',
+  bunnyTokenTtlSeconds: Math.min(900, Math.max(60, parseInt(process.env.BUNNY_TOKEN_TTL_SECONDS || '300', 10) || 300)),
+  port: parseInt(process.env.PORT || '3000', 10)
+};
