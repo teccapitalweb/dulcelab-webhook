@@ -17,7 +17,7 @@ const videosPermitidos = new Set(
   catalogo.flatMap(curso => (curso.sesiones || []).map(sesion => sesion.videoId)).filter(Boolean)
 );
 const correosAdmin = new Set([
-  'CAMBIA-ESTE-CORREO@dulcelabfood.com' // TODO Jorge: mismos correos que ADMINS en vip-admin.html
+  'teccapitalweb@gmail.com'
 ]);
 
 function normalizar(texto) {
