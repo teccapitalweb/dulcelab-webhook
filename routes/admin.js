@@ -20,7 +20,7 @@ const router = express.Router();
 
 // Emails con permiso de administrar miembros (igual que ADMINS de vip-auth)
 const ADMIN_EMAILS = [
-  'CAMBIA-ESTE-CORREO@dulcelabfood.com' // TODO Jorge: mismos correos que ADMINS en vip-admin.html
+  'teccapitalweb@gmail.com'
 ];
 
 // ───────────────────────────────────────────────────────────────
