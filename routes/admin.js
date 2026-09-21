@@ -220,4 +220,24 @@ router.post('/eliminar-miembro', requireAdmin, async (req, res) => {
   }
 });
 
+// ───────────────────────────────────────────────────────────────
+// POST /admin/eliminar-certificado  body: { folio }
+// Borra el certificado desde el servidor (Admin SDK, sin pasar por las
+// reglas de seguridad de Firestore del lado del cliente). El admin nunca
+// borra directo desde el navegador — igual que eliminar-miembro.
+// ───────────────────────────────────────────────────────────────
+router.post('/eliminar-certificado', requireAdmin, async (req, res) => {
+  try {
+    const { folio } = req.body || {};
+    if (!folio) return res.status(400).json({ ok: false, error: 'Falta folio' });
+
+    await db.collection('certificados').doc(folio).delete();
+    console.log(`🗑️  Certificado eliminado · ${folio} · por ${req.admin.email}`);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ eliminar-certificado:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 export default router;
