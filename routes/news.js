@@ -4,10 +4,23 @@
 
 import express from 'express';
 import { syncNewsData } from '../services/news.js';
-import { getUltimaNoticia } from '../services/firestore.js';
+import { getUltimaNoticia, listarNoticias } from '../services/firestore.js';
 import { env } from '../config/env.js';
 
 const router = express.Router();
+
+// GET /noticias/lista?limite=20 · lista pública (Admin SDK, sin pasar por
+// las reglas de Firestore del cliente, que rechazan esta colección).
+// La usan tanto el admin como el panel de alumnos.
+router.get('/lista', async (req, res) => {
+  try {
+    const limite = Math.min(50, Math.max(1, parseInt(req.query.limite, 10) || 20));
+    const noticias = await listarNoticias(limite);
+    res.json({ ok: true, noticias });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 // GET /noticias/sync?secret=... → disparar manualmente el cron
 router.get('/sync', async (req, res) => {

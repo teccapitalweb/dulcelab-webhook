@@ -72,6 +72,7 @@ app.listen(env.port, () => {
   console.log('     POST /api/bunny/embed-token         · reproductor Bunny protegido');
   console.log('     POST /certificados/emitir           · genera PDF + envía por correo');
   console.log('     GET  /noticias/sync?secret=         · cron manual');
+  console.log('     GET  /noticias/lista?limite=         · lista pública (admin + panel)');
   console.log('     GET  /test-correo?to=               · prueba de correo');
   console.log('     GET  /health                        · health check');
 });

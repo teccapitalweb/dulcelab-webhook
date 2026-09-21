@@ -188,6 +188,25 @@ export async function getUltimaNoticia() {
   };
 }
 
+// MODIFICADO: las reglas de Firestore rechazan la lectura de noticias_auto
+// desde el cliente ("Missing or insufficient permissions") — tanto para el
+// admin como para el panel de alumnos. En vez de tocar las reglas, se lee
+// aquí con el Admin SDK (mismo patrón que certificados) y tanto el admin
+// como el panel piden la lista a este endpoint en vez de a Firestore directo.
+export async function listarNoticias(limite = 20) {
+  const snap = await db.collection('noticias_auto')
+    .orderBy('fechaPublicacion', 'desc').limit(limite).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    return {
+      id: d.id,
+      ...data,
+      fechaPublicacion: data.fechaPublicacion?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null
+    };
+  });
+}
+
 export async function borrarNoticiasViejas(dias = 15) {
   const limite = new Date(Date.now() - dias * 86400000);
   const snap = await db.collection('noticias_auto')
