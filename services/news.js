@@ -51,11 +51,17 @@ const RUIDO = [
   'futbol', 'fútbol', 'nba', 'nfl', 'liga mx', 'gol', 'partido', 'jugador',
   'celebrity', 'farándula', 'horóscopo', 'horoscopo', 'astros', 'signo',
   'netflix', 'serie', 'película', 'pelicula', 'concierto', 'cantante',
-  'bitcoin', 'crypto', 'criptomoneda', 'apuestas', 'casino', 'lotería', 'loteria'
+  'bitcoin', 'crypto', 'criptomoneda', 'apuestas', 'casino', 'lotería', 'loteria',
+  // MODIFICADO: noticias de seguridad/crimen se colaban porque mencionan de
+  // pasada "restaurantes" o "alimentación" como parte de los negocios
+  // afectados (ej. "el pequeño comercio se blinda ante robos") — no son
+  // temas de gastronomía aunque compartan esas palabras.
+  'robo', 'robos', 'atraco', 'asalto', 'delincuencia', 'inseguridad',
+  'crimen', 'homicidio', 'narco', 'cartel', 'secuestro'
 ];
 
 const RELEVANTES = [
-  'gastronom', 'cocina', 'cocin', 'chef', 'culinar', 'restaurant', 'reposter',
+  'gastronom', 'cocina', 'cocin', 'cook', 'chef', 'culinar', 'restaurant', 'reposter',
   'panader', 'bakery', 'bak', 'aliment', 'food', 'receta', 'recipe', 'menú',
   'menu', 'inocuidad', 'sanitari', 'hosteler', 'hospitality', 'bebida',
   'beverage', 'coctel', 'cocktail', 'barism', 'café', 'cafe', 'coffee', 'catering',
