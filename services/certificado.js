@@ -63,9 +63,9 @@ export async function generarCertificadoPDF(cert) {
     let y = 70;
 
     // Encabezado marca
-    doc.font('Times-Bold').fontSize(24).fillColor(WINE)
+    doc.font('Times-Bold').fontSize(30).fillColor(WINE)
       .text('DulceLab Food', 0, y, { align: 'center' });
-    y += 30;
+    y += 34;
     doc.font('Helvetica').fontSize(9).fillColor(MUTED)
       .text('GASTRONOMÍA · REPOSTERÍA · INOCUIDAD ALIMENTARIA', 0, y, { align: 'center', characterSpacing: 1.5 });
     y += 34;
@@ -111,20 +111,20 @@ export async function generarCertificadoPDF(cert) {
     }
 
     // Firma 1: instructor/coordinación
-    const sigX1 = W / 2 - 150;
-    doc.moveTo(sigX1, footY + 74).lineTo(sigX1 + 150, footY + 74).lineWidth(0.75).stroke(TEXT);
-    doc.font('Times-Bold').fontSize(12).fillColor(TEXT)
-      .text(cert.instructor || 'Equipo DulceLab Food', sigX1, footY + 80, { width: 150, align: 'center' });
+    const sigX1 = W / 2 - 210;
+    doc.moveTo(sigX1, footY + 74).lineTo(sigX1 + 190, footY + 74).lineWidth(0.75).stroke(TEXT);
+    doc.font('Times-Bold').fontSize(11).fillColor(TEXT)
+      .text('María Josefina Mariano Ventura', sigX1, footY + 80, { width: 190, align: 'center' });
     doc.font('Helvetica').fontSize(7).fillColor(MUTED)
-      .text('INSTRUCTOR(A) DEL PROGRAMA', sigX1, footY + 100, { width: 150, align: 'center', characterSpacing: 1 });
+      .text('COORDINADORA · DULCELAB FOOD', sigX1, footY + 112, { width: 190, align: 'center', characterSpacing: 1 });
 
     // Firma 2: coordinación de certificación
     const sigX2 = W / 2 + 20;
-    doc.moveTo(sigX2, footY + 74).lineTo(sigX2 + 170, footY + 74).lineWidth(0.75).stroke(TEXT);
+    doc.moveTo(sigX2, footY + 74).lineTo(sigX2 + 190, footY + 74).lineWidth(0.75).stroke(TEXT);
     doc.font('Times-Bold').fontSize(11).fillColor(TEXT)
-      .text('Coordinación de Certificación', sigX2, footY + 80, { width: 170, align: 'center' });
+      .text('Coordinación de Certificación', sigX2, footY + 80, { width: 190, align: 'center' });
     doc.font('Helvetica').fontSize(7).fillColor(MUTED)
-      .text('DULCELAB FOOD', sigX2, footY + 100, { width: 170, align: 'center', characterSpacing: 1 });
+      .text('IPCI LATINOAMERICANO', sigX2, footY + 112, { width: 190, align: 'center', characterSpacing: 1 });
 
     // Barra final: folio · sitio · fecha
     const barY = H - 50;
