@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.get('/', (req, res) => {
   res.json({
-    service: 'BioNova Webhook',
+    service: 'DulceLab Food Webhook',
     status: 'running',
     version: '1.0.0',
     source: 'dulcelab'

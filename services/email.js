@@ -6,10 +6,10 @@
 
 import { env } from '../config/env.js';
 
-const FROM = env.mailFrom;                 // 'BioNova <noreply@bionovamexico.com>'
+const FROM = env.mailFrom;                 // 'DulceLab Food <noreply@dulcelabfood.com>'
 const PANEL_URL = env.panelUrl;
 
-async function enviarCorreo({ to, subject, html }) {
+async function enviarCorreo({ to, subject, html, attachments }) {
   if (!env.resendApiKey) {
     console.warn('⚠️  RESEND_API_KEY no configurada · correo no enviado');
     return { ok: false, reason: 'no-api-key' };
@@ -19,21 +19,23 @@ async function enviarCorreo({ to, subject, html }) {
     return { ok: false, reason: 'no-recipient' };
   }
   try {
+    const body = { from: FROM, to, subject, html };
+    if (Array.isArray(attachments) && attachments.length) body.attachments = attachments;
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${env.resendApiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ from: FROM, to, subject, html })
+      body: JSON.stringify(body)
     });
-    const body = await r.text();
+    const respTxt = await r.text();
     if (!r.ok) {
-      console.error('⚠️  Resend error', r.status, '·', body.slice(0, 200));
-      return { ok: false, status: r.status, detalle: body.slice(0, 200) };
+      console.error('⚠️  Resend error', r.status, '·', respTxt.slice(0, 200));
+      return { ok: false, status: r.status, detalle: respTxt.slice(0, 200) };
     }
     console.log('📧 Correo enviado a', to, '·', subject);
-    return { ok: true, detalle: body.slice(0, 120) };
+    return { ok: true, detalle: respTxt.slice(0, 120) };
   } catch (err) {
     console.error('⚠️  Error enviando correo:', err.message);
     return { ok: false, reason: err.message };
@@ -41,7 +43,7 @@ async function enviarCorreo({ to, subject, html }) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// Plantilla: bienvenida al activar membresía VIP (identidad BioNova)
+// Plantilla: bienvenida al activar membresía VIP (identidad DulceLab Food)
 // ───────────────────────────────────────────────────────────────
 function plantillaBienvenida({ nombre, plan }) {
   const saludo = nombre ? `Hola ${nombre}` : 'Hola';
@@ -50,33 +52,33 @@ function plantillaBienvenida({ nombre, plan }) {
     : 'Membresía VIP';
   return `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Bienvenido a BioNova VIP</title></head>
-<body style="margin:0;padding:0;background:#081225;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#081225;padding:32px 16px;">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Bienvenido a DulceLab Food VIP</title></head>
+<body style="margin:0;padding:0;background:#fbeff2;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fbeff2;padding:32px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#0b1530;border:1px solid #16294a;border-radius:20px;overflow:hidden;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border:1px solid #f0d9de;border-radius:20px;overflow:hidden;">
 
-        <tr><td style="background:linear-gradient(135deg,#2a6df6,#10b981);padding:36px 32px;text-align:center;">
-          <div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-.5px;">BioNova</div>
-          <div style="font-size:12px;font-weight:600;color:#eaf2ff;opacity:.9;margin-top:6px;letter-spacing:1.5px;text-transform:uppercase;">Club VIP · Biomedicina · Microbiología</div>
+        <tr><td style="background:#6b1526;padding:36px 32px;text-align:center;">
+          <div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-.5px;">DulceLab Food</div>
+          <div style="font-size:12px;font-weight:600;color:#f6d9de;opacity:.9;margin-top:6px;letter-spacing:1.5px;text-transform:uppercase;">Club VIP · Gastronomía · Repostería · Inocuidad</div>
         </td></tr>
 
         <tr><td style="padding:36px 32px;">
-          <h1 style="margin:0 0 14px;font-size:22px;font-weight:800;color:#eaf2ff;letter-spacing:-.4px;">${saludo}, ¡bienvenido al Club VIP!</h1>
-          <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#aebfd6;">
-            Tu <strong style="color:#69d2ff;">${planTxt}</strong> ya está activa. Desde hoy tienes acceso completo a todo lo que BioNova tiene para ti.
+          <h1 style="margin:0 0 14px;font-size:22px;font-weight:800;color:#3B2420;letter-spacing:-.4px;">${saludo}, ¡bienvenido al Club VIP!</h1>
+          <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#6B5147;">
+            Tu <strong style="color:#6b1526;">${planTxt}</strong> ya está activa. Desde hoy tienes acceso completo a todo lo que DulceLab Food tiene para ti.
           </p>
 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0;">
-            <tr><td style="padding:11px 0;border-bottom:1px solid #16294a;font-size:14px;color:#aebfd6;">Cursos con certificado verificable</td></tr>
-            <tr><td style="padding:11px 0;border-bottom:1px solid #16294a;font-size:14px;color:#aebfd6;">Herramientas clínicas y de laboratorio</td></tr>
-            <tr><td style="padding:11px 0;border-bottom:1px solid #16294a;font-size:14px;color:#aebfd6;">Clases en vivo y webinars del área</td></tr>
-            <tr><td style="padding:11px 0;border-bottom:1px solid #16294a;font-size:14px;color:#aebfd6;">Directorio profesional y biblioteca técnica</td></tr>
-            <tr><td style="padding:11px 0;font-size:14px;color:#aebfd6;">Noticias de biomedicina, microbiología y medicina</td></tr>
+            <tr><td style="padding:11px 0;border-bottom:1px solid #f0d9de;font-size:14px;color:#6B5147;">Cursos con certificado verificable</td></tr>
+            <tr><td style="padding:11px 0;border-bottom:1px solid #f0d9de;font-size:14px;color:#6B5147;">Herramientas Pro de costeo y cocina</td></tr>
+            <tr><td style="padding:11px 0;border-bottom:1px solid #f0d9de;font-size:14px;color:#6B5147;">Clases en vivo con chefs y expertos</td></tr>
+            <tr><td style="padding:11px 0;border-bottom:1px solid #f0d9de;font-size:14px;color:#6B5147;">Directorio profesional y material descargable</td></tr>
+            <tr><td style="padding:11px 0;font-size:14px;color:#6B5147;">Noticias de gastronomía, repostería e inocuidad</td></tr>
           </table>
 
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 4px;">
-            <tr><td style="border-radius:12px;background:linear-gradient(135deg,#2a6df6,#10b981);">
+            <tr><td style="border-radius:12px;background:#6b1526;">
               <a href="${PANEL_URL}/vip-panel.html" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">
                 Entrar a mi panel VIP
               </a>
@@ -84,9 +86,9 @@ function plantillaBienvenida({ nombre, plan }) {
           </table>
         </td></tr>
 
-        <tr><td style="padding:24px 32px;border-top:1px solid #16294a;text-align:center;">
-          <p style="margin:0 0 6px;font-size:12px;color:#5b6b86;line-height:1.6;">Recibiste este correo porque activaste tu membresía en BioNova.</p>
-          <p style="margin:0;font-size:12px;color:#46566f;">BioNova · Biomedicina · Microbiología · Medicina general · Tehuacán, Puebla</p>
+        <tr><td style="padding:24px 32px;border-top:1px solid #f0d9de;text-align:center;">
+          <p style="margin:0 0 6px;font-size:12px;color:#8a746c;line-height:1.6;">Recibiste este correo porque activaste tu membresía en DulceLab Food.</p>
+          <p style="margin:0;font-size:12px;color:#a5928a;">DulceLab Food · Gastronomía · Repostería · Inocuidad alimentaria · Tehuacán, Puebla</p>
         </td></tr>
 
       </table>
@@ -98,14 +100,64 @@ function plantillaBienvenida({ nombre, plan }) {
 
 export async function enviarBienvenida({ to, nombre, plan }) {
   const html = plantillaBienvenida({ nombre, plan });
-  const subject = '¡Bienvenido al Club VIP de BioNova!';
+  const subject = '¡Bienvenido al Club VIP de DulceLab Food!';
   return enviarCorreo({ to, subject, html });
 }
 
 // Correo de prueba (diagnóstico /test-correo) · sin gastar pagos ni cupones
 export async function enviarPrueba({ to }) {
   const html = plantillaBienvenida({ nombre: 'prueba', plan: 'mensual' });
-  return enviarCorreo({ to, subject: '✔ Prueba de correo · BioNova', html });
+  return enviarCorreo({ to, subject: '✔ Prueba de correo · DulceLab Food', html });
+}
+
+// ───────────────────────────────────────────────────────────────
+// Plantilla + envío: certificado con el PDF adjunto
+// ───────────────────────────────────────────────────────────────
+function plantillaCertificado({ nombre, curso }) {
+  const saludo = nombre ? `Hola ${nombre}` : 'Hola';
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tu certificado DulceLab Food</title></head>
+<body style="margin:0;padding:0;background:#fbeff2;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fbeff2;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border:1px solid #f0d9de;border-radius:20px;overflow:hidden;">
+
+        <tr><td style="background:#6b1526;padding:36px 32px;text-align:center;">
+          <div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-.5px;">DulceLab Food</div>
+          <div style="font-size:12px;font-weight:600;color:#f6d9de;opacity:.9;margin-top:6px;letter-spacing:1.5px;text-transform:uppercase;">Certificado de acreditación</div>
+        </td></tr>
+
+        <tr><td style="padding:36px 32px;">
+          <h1 style="margin:0 0 14px;font-size:22px;font-weight:800;color:#3B2420;letter-spacing:-.4px;">${saludo}, ¡felicidades! 🎉</h1>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#6B5147;">
+            Completaste <strong style="color:#6b1526;">${curso || 'tu curso'}</strong>. Adjuntamos tu certificado oficial en PDF, listo para descargar, imprimir o compartir.
+          </p>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#8a746c;">
+            El certificado incluye un código QR para que cualquier persona pueda verificar su autenticidad en dulcelabfood.com.
+          </p>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px;border-top:1px solid #f0d9de;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#a5928a;">DulceLab Food · Gastronomía · Repostería · Inocuidad alimentaria · Tehuacán, Puebla</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function enviarCertificado({ to, nombre, curso, folio, pdfBuffer }) {
+  const html = plantillaCertificado({ nombre, curso });
+  const nombreArchivo = `Certificado-${(folio || 'DulceLab-Food').replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`;
+  return enviarCorreo({
+    to,
+    subject: `🎓 Tu certificado de "${curso || 'DulceLab Food'}" está listo`,
+    html,
+    attachments: [{ filename: nombreArchivo, content: pdfBuffer.toString('base64') }]
+  });
 }
 
 export { enviarCorreo };

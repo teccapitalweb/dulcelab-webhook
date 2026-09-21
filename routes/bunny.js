@@ -92,7 +92,7 @@ router.post('/embed-token', async (req, res) => {
 
     const videoId = String(req.body?.videoId || '').trim();
     if (!videosPermitidos.has(videoId)) {
-      return res.status(404).json({ error: 'Video no encontrado en el catálogo de BioNova' });
+      return res.status(404).json({ error: 'Video no encontrado en el catálogo de DulceLab Food' });
     }
 
     const muestraId = await obtenerVideoMuestra();

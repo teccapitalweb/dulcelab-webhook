@@ -89,7 +89,7 @@ export async function handleSubscriptionChange(subscription) {
 
   if (!docId) {
     // Si no existe en nuestra colección, es de otro proyecto: lo ignoramos.
-    console.log('⏭️  Suscripción cambió pero no es de BioNova:', subId);
+    console.log('⏭️  Suscripción cambió pero no es de DulceLab Food:', subId);
     return;
   }
   console.log('🔄 Suscripción actualizada:', docId, '·', status, '· activa:', activa);
@@ -159,7 +159,7 @@ export async function createCheckoutSession({ plan, uid, email }) {
         unit_amount: Math.round(montoMXN * 100),
         recurring: { interval },
         product_data: {
-          name: `BioNova VIP · Plan ${plan === 'mensual' ? 'Mensual' : 'Anual'}`,
+          name: `DulceLab Food VIP · Plan ${plan === 'mensual' ? 'Mensual' : 'Anual'}`,
           metadata: { plan, source: SOURCE }
         }
       },

@@ -198,3 +198,27 @@ export async function borrarNoticiasViejas(dias = 15) {
   await batch.commit();
   return snap.size;
 }
+
+// ───────────────────────────────────────────────────────────────
+// /certificados · lectura + marca de correo enviado
+// El doc ya lo crea el panel (Firestore client SDK) al completar un curso;
+// aquí solo lo leemos para generar el PDF y marcamos que ya se envió,
+// para no duplicar correos si el panel reintenta la llamada.
+// ───────────────────────────────────────────────────────────────
+
+export async function getCertificado(folio) {
+  const doc = await db.collection('certificados').doc(folio).get();
+  if (!doc.exists) return null;
+  const data = doc.data();
+  return {
+    ...data,
+    emitido: data.emitido?.toDate?.()?.toISOString?.() || data.emitido || null
+  };
+}
+
+export async function marcarCertificadoEnviado(folio) {
+  await db.collection('certificados').doc(folio).set({
+    correoEnviado: true,
+    fechaCorreoEnviado: FieldValue.serverTimestamp()
+  }, { merge: true });
+}
