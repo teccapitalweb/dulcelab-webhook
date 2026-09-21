@@ -1,50 +1,50 @@
 // ═══════════════════════════════════════════════════════════════════
 // services/news.js · cron NewsData → Firestore (colección noticias_auto)
-// Adaptado a BioNova: biomedicina, microbiología y medicina general.
-// Patrón probado: queries CORTAS, rotación 3 categorías/día, filtro de
-// relevancia, borra noticias de +15 días, 3 noticias diarias.
+// Temas de DulceLab Food: gastronomía, repostería, inocuidad, negocio
+// de restaurantes y bebidas. Queries CORTAS, rotación 3 categorías/día,
+// filtro de relevancia, borra noticias de +15 días, 3 noticias diarias.
 // ═══════════════════════════════════════════════════════════════════
 
 import { env } from '../config/env.js';
 import { guardarNoticia, borrarNoticiasViejas } from './firestore.js';
 
 const CATEGORIAS = {
-  microbiologia: {
-    nombre: 'Microbiología',
-    color: '#2a6df6',
-    queries: ['microbiología', 'microbiology', 'resistencia antimicrobiana', 'antimicrobial resistance']
+  cocina: {
+    nombre: 'Cocina y gastronomía',
+    color: '#EF4444',
+    queries: ['gastronomía', 'gastronomy trends', 'chef cocina', 'culinary news']
   },
-  biomedicina: {
-    nombre: 'Biomedicina',
-    color: '#10b981',
-    queries: ['biomedicina', 'biomedical research', 'terapia celular', 'stem cells']
+  reposteria: {
+    nombre: 'Repostería y panadería',
+    color: '#C94B68',
+    queries: ['repostería', 'pastry baking', 'panadería artesanal', 'bakery trends']
   },
-  medicina: {
-    nombre: 'Medicina general',
-    color: '#38bdf8',
-    queries: ['medicina general', 'clinical medicine', 'salud pública', 'public health']
+  inocuidad: {
+    nombre: 'Inocuidad alimentaria',
+    color: '#22C55E',
+    queries: ['inocuidad alimentaria', 'food safety', 'seguridad alimentaria', 'food safety regulations']
   },
-  laboratorio: {
-    nombre: 'Laboratorio clínico',
-    color: '#a78bfa',
-    queries: ['laboratorio clínico', 'clinical laboratory', 'diagnóstico médico', 'medical diagnostics']
+  negocio: {
+    nombre: 'Negocio de restaurantes',
+    color: '#3B82F6',
+    queries: ['negocio de restaurantes', 'restaurant industry', 'control de costos restaurante', 'food cost restaurant']
   },
-  farma: {
-    nombre: 'Farmacéutica',
-    color: '#fbbf24',
-    queries: ['control de calidad farmacéutica', 'pharmaceutical quality', 'buenas prácticas GMP', 'drug development']
+  bebidas: {
+    nombre: 'Bebidas y coctelería',
+    color: '#14B8A6',
+    queries: ['coctelería', 'mixology cocktails', 'café de especialidad', 'specialty coffee trends']
   }
 };
 
 // Rotación: 3 categorías por día (0=domingo … 6=sábado)
 const ROTACION = {
-  0: ['microbiologia', 'biomedicina', 'medicina'],
-  1: ['microbiologia', 'laboratorio', 'farma'],
-  2: ['biomedicina', 'medicina', 'laboratorio'],
-  3: ['microbiologia', 'farma', 'biomedicina'],
-  4: ['medicina', 'laboratorio', 'farma'],
-  5: ['microbiologia', 'biomedicina', 'laboratorio'],
-  6: ['medicina', 'farma', 'microbiologia']
+  0: ['cocina', 'reposteria', 'bebidas'],
+  1: ['cocina', 'inocuidad', 'negocio'],
+  2: ['reposteria', 'negocio', 'inocuidad'],
+  3: ['cocina', 'bebidas', 'reposteria'],
+  4: ['negocio', 'inocuidad', 'bebidas'],
+  5: ['cocina', 'reposteria', 'negocio'],
+  6: ['bebidas', 'negocio', 'cocina']
 };
 
 const RUIDO = [
@@ -55,11 +55,11 @@ const RUIDO = [
 ];
 
 const RELEVANTES = [
-  'microbi', 'biomed', 'clínic', 'clinic', 'laborator', 'salud', 'health',
-  'medic', 'célul', 'cell', 'antimicrob', 'bacteri', 'virus', 'viral',
-  'diagnós', 'diagnos', 'farmac', 'pharma', 'patolog', 'inmun', 'immun',
-  'vacun', 'vaccine', 'genét', 'genetic', 'enferm', 'disease', 'infecci',
-  'infection', 'gmp', 'biotecnolog', 'biotech', 'molecular', 'epidemi'
+  'gastronom', 'cocina', 'cocin', 'chef', 'culinar', 'restaurant', 'reposter',
+  'panader', 'bakery', 'bak', 'aliment', 'food', 'receta', 'recipe', 'menú',
+  'menu', 'inocuidad', 'sanitari', 'hosteler', 'hospitality', 'bebida',
+  'beverage', 'coctel', 'cocktail', 'barism', 'café', 'cafe', 'coffee', 'catering',
+  'banquete', 'nutrici', 'ingredient', 'culinary'
 ];
 
 function esRelevante(art) {

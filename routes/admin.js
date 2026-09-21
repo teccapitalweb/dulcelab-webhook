@@ -15,6 +15,7 @@ import admin from 'firebase-admin';
 import { db, FieldValue, Timestamp } from '../config/firebase.js';
 import { stripe } from '../config/stripe.js';
 import { resolverSubId } from '../services/stripe.js';
+import { syncNewsData } from '../services/news.js';
 
 const router = express.Router();
 
@@ -236,6 +237,43 @@ router.post('/eliminar-certificado', requireAdmin, async (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     console.error('❌ eliminar-certificado:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────
+// POST /admin/eliminar-noticia  body: { id }
+// Igual patrón que eliminar-certificado: borra vía Admin SDK, sin pasar
+// por las reglas de Firestore del cliente. Colección real: noticias_auto
+// (la que llena el cron de NewsData — no "noticias").
+// ───────────────────────────────────────────────────────────────
+router.post('/eliminar-noticia', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.body || {};
+    if (!id) return res.status(400).json({ ok: false, error: 'Falta id' });
+
+    await db.collection('noticias_auto').doc(id).delete();
+    console.log(`🗑️  Noticia eliminada · ${id} · por ${req.admin.email}`);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ eliminar-noticia:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────
+// POST /admin/ejecutar-noticias  · corre el cron de NewsData al toque,
+// sin esperar a las 7am. Útil para probar en cuanto se configure
+// NEWSDATA_API_KEY. Si la llave no está puesta, syncNewsData() lo avisa
+// y no truena (mismo "apagado seguro" que el resto del sistema).
+// ───────────────────────────────────────────────────────────────
+router.post('/ejecutar-noticias', requireAdmin, async (req, res) => {
+  try {
+    const total = await syncNewsData();
+    console.log(`📰 Cron de noticias ejecutado manualmente · ${total} guardadas · por ${req.admin.email}`);
+    return res.json({ ok: true, total });
+  } catch (e) {
+    console.error('❌ ejecutar-noticias:', e.message);
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
