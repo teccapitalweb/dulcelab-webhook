@@ -15,7 +15,7 @@ const TEXT = '#3B2420';
 const MUTED = '#6B5147';
 
 function verifyUrl(folio) {
-  return `${(env.panelUrl || 'https://club.dulcelabfood.com').replace('club.', '')}/verificar.html?folio=${encodeURIComponent(folio)}`;
+  return `${env.panelUrl || 'https://club.dulcelabfood.com'}/verificar.html?folio=${encodeURIComponent(folio)}`;
 }
 function qrUrl(folio) {
   return 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' + encodeURIComponent(verifyUrl(folio));

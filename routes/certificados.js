@@ -57,4 +57,32 @@ router.post('/emitir', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────
+// GET /certificados/verificar/:folio · endpoint PÚBLICO (sin login).
+// Lo usa verificar.html para que cualquier persona con el link o el QR
+// del certificado pueda confirmar que es real. Solo expone los campos
+// necesarios para mostrar la validez — nunca el uid, el correo del
+// alumno ni si ya se le mandó el PDF por correo.
+// ─────────────────────────────────────────────────────────────
+router.get('/verificar/:folio', async (req, res) => {
+  try {
+    const cert = await getCertificado(req.params.folio);
+    if (!cert) return res.status(404).json({ valido: false });
+    return res.json({
+      valido: true,
+      folio: cert.folio,
+      nombre: cert.nombre,
+      curso: cert.curso,
+      area: cert.area,
+      horas: cert.horas,
+      sesiones: cert.sesiones,
+      instructor: cert.instructor,
+      emitido: cert.emitido
+    });
+  } catch (err) {
+    console.error('❌ /certificados/verificar:', err.message);
+    return res.status(500).json({ valido: false, error: err.message });
+  }
+});
+
 export default router;
