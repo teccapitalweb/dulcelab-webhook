@@ -29,10 +29,18 @@ router.get('/health', (req, res) => {
   });
 });
 
-// GET /test-correo?to=correo@dominio.com
+// GET /test-correo?to=correo@dominio.com&secret=...
 // Prueba el envío SIN gastar pagos ni cupones. Indica si la API key está
 // presente y devuelve la respuesta de Resend (útil para depurar el correo).
+// MODIFICADO (revisión de seguridad): antes no pedía nada — cualquiera en
+// internet podía usarlo para mandar correos "de prueba" a cualquier
+// dirección usando tu cuenta de Resend (gasta tu cupo y puede dañar la
+// reputación de tu dominio de envío). Ahora pide el mismo secreto que ya
+// usa /noticias/sync (CRON_SECRET en Railway).
 router.get('/test-correo', async (req, res) => {
+  if (req.query.secret !== env.cronSecret) {
+    return res.status(401).json({ ok: false, error: 'Secret inválido' });
+  }
   const to = req.query.to;
   if (!to) return res.status(400).json({ ok: false, error: 'Falta ?to=correo@dominio.com' });
   if (!env.resendApiKey) {
