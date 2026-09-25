@@ -1,13 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════
-// routes/certificados.js · genera el PDF del certificado y lo envía por correo
+// routes/certificados.js · envía por correo el PDF del certificado
 //
-//   POST /certificados/emitir   body: { folio, email }
+//   POST /certificados/emitir   body: { folio, email, pdfBase64? }
 //
 // El panel ya escribió el certificado en Firestore (colección /certificados,
 // vía Firestore client SDK) al completar el curso. Este endpoint solo lo LEE
 // desde ahí (nunca confía en el contenido del certificado que venga del
-// cliente, solo en el folio para buscarlo), genera el PDF con pdfkit y lo
-// manda por Resend. Idempotente: si ya se envió, no lo manda dos veces.
+// cliente, solo en el folio para buscarlo).
+//
+// MODIFICADO: antes este endpoint SIEMPRE redibujaba el PDF desde cero en el
+// servidor (pdfkit), y por eso el correo llegaba con un diseño distinto —
+// más plano — al certificado bonito que se ve en el panel. Ahora el panel
+// manda el PDF YA renderizado (el mismo html2canvas+jsPDF que usa el botón
+// "Descargar PDF" en pantalla) en `pdfBase64`, y este endpoint solo lo
+// adjunta y lo envía — es exactamente el mismo archivo, pixel por pixel.
+// Si por algún motivo el panel no pudo generarlo (navegador viejo, error de
+// canvas, etc.) y no manda pdfBase64, se cae de vuelta al generador de
+// pdfkit para no dejar al alumno sin certificado por correo.
 // ═══════════════════════════════════════════════════════════════════
 
 import express from 'express';
@@ -19,7 +28,7 @@ const router = express.Router();
 
 router.post('/emitir', async (req, res) => {
   try {
-    const { folio, email } = req.body || {};
+    const { folio, email, pdfBase64 } = req.body || {};
     if (!folio) return res.status(400).json({ ok: false, error: 'Falta folio' });
     if (!email) return res.status(400).json({ ok: false, error: 'Falta email' });
 
@@ -33,7 +42,24 @@ router.post('/emitir', async (req, res) => {
       return res.json({ ok: true, yaEnviado: true });
     }
 
-    const pdfBuffer = await generarCertificadoPDF(cert);
+    let pdfBuffer;
+    let origen;
+    if (pdfBase64) {
+      try {
+        // Acepta tanto un data URI completo ("data:application/pdf;base64,....")
+        // como el base64 puro, por si el cliente lo manda de cualquiera de las dos formas.
+        const soloBase64 = pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64;
+        pdfBuffer = Buffer.from(soloBase64, 'base64');
+        origen = 'panel (mismo diseño que se ve en pantalla)';
+      } catch (e) {
+        console.warn(`⚠️  pdfBase64 recibido pero no se pudo decodificar (${folio}):`, e.message);
+      }
+    }
+    if (!pdfBuffer || !pdfBuffer.length) {
+      pdfBuffer = await generarCertificadoPDF(cert);
+      origen = 'respaldo del servidor (el panel no mandó el PDF ya generado)';
+    }
+    console.log(`ℹ️  PDF del certificado ${folio} · origen: ${origen}`);
 
     const resultado = await enviarCertificado({
       to: email,
