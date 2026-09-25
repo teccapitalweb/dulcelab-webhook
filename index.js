@@ -42,7 +42,10 @@ app.use(cors({ origin: true, credentials: true }));
 app.use('/stripe', stripeRoutes);
 
 // El resto sí puede usar express.json globalmente
-app.use(express.json());
+// MODIFICADO: límite subido de 100kb (default) a 15mb — /certificados/emitir
+// ahora recibe el PDF del certificado ya renderizado en base64 (~1-2MB), que
+// con el límite por defecto se rechazaba con 413 antes de llegar a la ruta.
+app.use(express.json({ limit: '15mb' }));
 app.use('/membership', membershipRoutes);
 app.use('/noticias', newsRoutes);
 app.use('/admin', adminRoutes);
