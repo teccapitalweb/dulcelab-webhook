@@ -1,12 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════
 // routes/certificados.js · envía por correo el PDF del certificado
 //
-//   POST /certificados/emitir   body: { folio, email, pdfBase64? }
+//   POST /certificados/emitir   body: { folio, pdfBase64? }
 //
 // El panel ya escribió el certificado en Firestore (colección /certificados,
 // vía Firestore client SDK) al completar el curso. Este endpoint solo lo LEE
 // desde ahí (nunca confía en el contenido del certificado que venga del
 // cliente, solo en el folio para buscarlo).
+//
+// MODIFICADO (revisión de seguridad): antes el body traía {folio, email} y
+// el correo se mandaba a lo que dijera el cliente — así que alguien que
+// supiera o adivinara el folio de OTRA persona (los folios no son secretos,
+// se ven en el propio PDF y en verificar.html) podía pedir que ese
+// certificado ajeno se lo mandaran a SU propio correo, y quedarse con una
+// copia real de un certificado con el nombre de otra persona. Ahora el
+// correo de destino sale SIEMPRE del certificado ya guardado en Firestore
+// (cert.email, escrito por el panel al momento de completar el curso, con
+// la sesión real de esa persona) — lo que venga en el body ya no se usa.
 //
 // MODIFICADO: antes este endpoint SIEMPRE redibujaba el PDF desde cero en el
 // servidor (pdfkit), y por eso el correo llegaba con un diseño distinto —
@@ -28,12 +38,16 @@ const router = express.Router();
 
 router.post('/emitir', async (req, res) => {
   try {
-    const { folio, email, pdfBase64 } = req.body || {};
+    const { folio, pdfBase64 } = req.body || {};
     if (!folio) return res.status(400).json({ ok: false, error: 'Falta folio' });
-    if (!email) return res.status(400).json({ ok: false, error: 'Falta email' });
 
     const cert = await getCertificado(folio);
     if (!cert) return res.status(404).json({ ok: false, error: 'Certificado no encontrado' });
+    if (!cert.email) {
+      console.error(`❌ Certificado ${folio} no tiene correo guardado — no se puede enviar de forma segura`);
+      return res.status(400).json({ ok: false, error: 'Este certificado no tiene correo asociado' });
+    }
+    const email = cert.email;
 
     // Idempotencia: si ya se mandó, no lo repetimos (el panel puede reintentar
     // la llamada sin querer, p.ej. si el alumno recarga la pantalla).
