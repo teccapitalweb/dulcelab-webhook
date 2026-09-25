@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import express from 'express';
+import admin from 'firebase-admin';
 import {
   verifyWebhookSignature, processWebhookEvent,
   createCheckoutSession, retrieveSession,
@@ -10,6 +11,41 @@ import {
 } from '../services/stripe.js';
 
 const router = express.Router();
+
+// Emails con permiso de admin (igual que en routes/admin.js)
+const ADMIN_EMAILS = ['teccapitalweb@gmail.com'];
+
+// ───────────────────────────────────────────────────────────────
+// MODIFICADO (revisión de seguridad): cancel-subscription,
+// reactivate-subscription y create-billing-portal antes aceptaban
+// {uid, email} en el body SIN verificar nada — cualquiera podía cancelar
+// la suscripción de OTRO miembro con solo saber o adivinar su uid o su
+// correo (que muchas veces no es secreto). Este middleware exige un
+// token real de Firebase (Authorization: Bearer <getIdToken()>, igual
+// que ya hace el panel admin) y solo deja pasar si el token es de esa
+// misma persona (uid coincide) o de un admin.
+// ───────────────────────────────────────────────────────────────
+async function requireSelfOrAdmin(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Falta iniciar sesión' });
+
+    const decoded = await admin.auth().verifyIdToken(token);
+    const email = (decoded.email || '').toLowerCase();
+    const esAdmin = ADMIN_EMAILS.includes(email);
+    const uidPedido = req.body?.uid;
+
+    if (!esAdmin && uidPedido && uidPedido !== decoded.uid) {
+      return res.status(403).json({ error: 'No puedes hacer esto en la cuenta de otra persona' });
+    }
+    req.usuarioToken = { uid: decoded.uid, email, esAdmin };
+    next();
+  } catch (e) {
+    console.error('❌ requireSelfOrAdmin:', e.message);
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+}
 
 // POST /stripe/webhook · necesita raw body (sin JSON parser) para verificar firma
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -52,7 +88,7 @@ router.get('/session/:id', async (req, res) => {
 });
 
 // POST /stripe/cancel-subscription · cancela al final del periodo (usuario VIP)
-router.post('/cancel-subscription', express.json(), async (req, res) => {
+router.post('/cancel-subscription', express.json(), requireSelfOrAdmin, async (req, res) => {
   try {
     const { uid, email } = req.body;
     if (!uid && !email) return res.status(400).json({ error: 'Falta uid o email' });
@@ -64,7 +100,7 @@ router.post('/cancel-subscription', express.json(), async (req, res) => {
 });
 
 // POST /stripe/reactivate-subscription · revierte la cancelación programada
-router.post('/reactivate-subscription', express.json(), async (req, res) => {
+router.post('/reactivate-subscription', express.json(), requireSelfOrAdmin, async (req, res) => {
   try {
     const { uid, email } = req.body;
     if (!uid && !email) return res.status(400).json({ error: 'Falta uid o email' });
@@ -76,7 +112,7 @@ router.post('/reactivate-subscription', express.json(), async (req, res) => {
 });
 
 // POST /stripe/create-billing-portal · portal de facturación de Stripe
-router.post('/create-billing-portal', express.json(), async (req, res) => {
+router.post('/create-billing-portal', express.json(), requireSelfOrAdmin, async (req, res) => {
   try {
     const { uid, email } = req.body;
     if (!uid && !email) return res.status(400).json({ error: 'Falta uid o email' });
