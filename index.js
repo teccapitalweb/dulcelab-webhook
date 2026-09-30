@@ -35,7 +35,18 @@ import certificadosRoutes from './routes/certificados.js';
 import { syncNewsData } from './services/news.js';
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
+// MODIFICADO (revisión de seguridad): "origin: true" refleja cualquier
+// Origin que mande el caller — en la práctica es CORS abierto para todas
+// las rutas, incluidas las de admin/Stripe. Se restringe al origen real
+// del panel (vip-panel.html / vip-admin.html viven en el mismo dominio).
+const ALLOWED_ORIGINS = [env.panelUrl];
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error('CORS: origen no permitido'));
+  },
+  credentials: true
+}));
 
 // IMPORTANTE: /stripe va PRIMERO porque /stripe/webhook necesita raw body.
 // El propio router maneja el raw body solo para ese endpoint.
