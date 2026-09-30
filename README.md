@@ -78,9 +78,36 @@ sola línea o como venga) como valor de esa variable en Railway.
 - `POST /admin/activar-manual` — activa Mensual/Anual o regala días (admin)
 - `POST /admin/cancelar-stripe` — cancela suscripción (admin)
 - `POST /admin/eliminar-miembro` — borra Stripe + Firestore + Auth (admin, a prueba de balas)
+- `POST /api/materiales/url` — entrega la URL real de un material (PDF/Drive) si corresponde
+- `POST /api/materiales/guardar` — guarda la URL real de un material (admin)
+- `POST /api/materiales/eliminar` — reacomoda la subcolección protegida al borrar un material (admin)
+- `POST /api/materiales/migrar` — mueve materiales viejos a la subcolección protegida (admin, una vez)
 - `GET  /noticias/sync?secret=` — dispara el cron manualmente
 - `GET  /test-correo?to=` — prueba el correo sin gastar pagos
 - `GET  /health` — health check
+
+## ⚠️ Pendiente manual en Firebase Console: regla de Firestore para materiales_privados
+
+La URL real de cada material (PDF/Drive) ya no vive en `cursos/{id}.materiales[]`
+(ese documento lo lee completo el panel por Firestore directo, sin filtro por
+membresía). Ahora vive en la subcolección `cursos/{id}/materiales_privados/{idx}`,
+que solo debe leer el Admin SDK de este webhook — **nunca el cliente directo**.
+
+El código de este webhook ya no depende de las reglas de Firestore (el Admin
+SDK las ignora siempre), pero sin esta regla, alguien podría seguir leyendo esa
+subcolección directo desde el navegador con el mismo apiKey público de la app,
+saltándose el webhook por completo. Agrega esto en Firebase Console → Firestore
+Database → Reglas, dentro del `match /cursos/{cursoId}`:
+
+```
+match /materiales_privados/{idx} {
+  allow read, write: if false; // solo el Admin SDK del webhook, nunca el cliente
+}
+```
+
+Después de desplegar este cambio, entra a vip-admin.html → Cursos → botón
+"🔒 Migrar materiales a modo seguro" (una sola vez) para mover las URLs que
+ya estaban guardadas en el formato viejo.
 
 ## Nota
 Quité el `index.html` que traía el repo original de BioNova: es un

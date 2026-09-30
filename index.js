@@ -30,6 +30,7 @@ import healthRoutes from './routes/health.js';
 import adminRoutes from './routes/admin.js';
 import bunnyRoutes from './routes/bunny.js';
 import certificadosRoutes from './routes/certificados.js';
+import materialesRoutes from './routes/materiales.js';
 
 // Cron
 import { syncNewsData } from './services/news.js';
@@ -61,6 +62,7 @@ app.use('/membership', membershipRoutes);
 app.use('/noticias', newsRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api/bunny', bunnyRoutes);
+app.use('/api/materiales', materialesRoutes);
 app.use('/certificados', certificadosRoutes);
 app.use('/', healthRoutes);
 
@@ -84,6 +86,9 @@ app.listen(env.port, () => {
   console.log('     POST /admin/cancelar-stripe         · cancela suscripción (admin)');
   console.log('     POST /admin/eliminar-miembro        · borra miembro (admin)');
   console.log('     POST /api/bunny/embed-token         · reproductor Bunny protegido');
+  console.log('     POST /api/materiales/url            · url real de un material (PDF/Drive), protegida');
+  console.log('     POST /api/materiales/guardar        · guarda url de un material (admin)');
+  console.log('     POST /api/materiales/migrar         · migra materiales viejos a modo seguro (admin, una vez)');
   console.log('     POST /certificados/emitir           · genera PDF + envía por correo');
   console.log('     GET  /noticias/sync?secret=         · cron manual');
   console.log('     GET  /noticias/lista?limite=         · lista pública (admin + panel)');
