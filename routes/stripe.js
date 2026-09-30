@@ -34,10 +34,18 @@ async function requireSelfOrAdmin(req, res, next) {
     const decoded = await admin.auth().verifyIdToken(token);
     const email = (decoded.email || '').toLowerCase();
     const esAdmin = ADMIN_EMAILS.includes(email);
-    const uidPedido = req.body?.uid;
 
-    if (!esAdmin && uidPedido && uidPedido !== decoded.uid) {
-      return res.status(403).json({ error: 'No puedes hacer esto en la cuenta de otra persona' });
+    // MODIFICADO (revisión de seguridad 2): la validación anterior solo
+    // comparaba "uid" si el body traía "uid" — bastaba con mandar {email}
+    // en vez de {uid} para saltarse el chequeo por completo y cancelar o
+    // abrir el portal de facturación de OTRO miembro. Ahora, para
+    // cualquiera que no sea admin, se ignora por completo lo que venga en
+    // el body y se fuerza uid/email a los del token ya verificado — así no
+    // hay ningún campo con el que se pueda pedir la acción sobre la cuenta
+    // de otra persona.
+    if (!esAdmin) {
+      req.body.uid = decoded.uid;
+      req.body.email = email;
     }
     req.usuarioToken = { uid: decoded.uid, email, esAdmin };
     next();
