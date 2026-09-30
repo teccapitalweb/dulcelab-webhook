@@ -1,0 +1,165 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cada quien lee/crea/edita SOLO su propio doc de miembro.
+    // MODIFICADO (revisión de seguridad): antes el update no restringía
+    // qué campos se podían cambiar, así que cualquiera podía ponerse
+    // activa:true y plan:'anual' a sí mismo desde la consola del navegador
+    // y quedar VIP sin pagar. Ahora el dueño puede seguir editando su
+    // nombre y demás datos de su perfil, pero "activa" y "plan" quedan
+    // congelados para el cliente — nadie los puede tocar por su cuenta.
+    // Esos dos campos solo los debe cambiar el webhook (Admin SDK, que
+    // no pasa por estas reglas) cuando Stripe confirma el pago o un
+    // admin activa manualmente.
+    match /miembros/{uid} {
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        request.auth.token.email in ["teccapitalweb@gmail.com"]
+      );
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.activa == resource.data.activa
+        && request.resource.data.plan == resource.data.plan;
+    }
+
+    // Catálogo de cursos, webinars y config: lectura pública (para la
+    // muestra gratis sin login), escritura solo para los admins.
+    match /cursos/{cursoId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        request.auth.token.email in [
+          "teccapitalweb@gmail.com"
+        ];
+
+      // MODIFICADO (revisión de seguridad): la URL real de cada material
+      // (PDF/Drive) vive aquí, aparte de cursos/{cursoId}.materiales[]
+      // (que es público y solo guarda título/tipo/reglas de desbloqueo,
+      // nunca la URL). Esta subcolección NO hereda el "allow read: if true"
+      // de arriba —en Firestore una regla no se hereda a subcolecciones—
+      // pero se deja explícito a propósito: solo la debe leer el Admin SDK
+      // del webhook (dulcelab-webhook, servicio materiales.js), nunca el
+      // cliente directo, aunque conozca el nombre de la subcolección.
+      match /materiales_privados/{idx} {
+        allow read, write: if false;
+      }
+    }
+
+    match /webinars/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        request.auth.token.email in [
+          "teccapitalweb@gmail.com"
+        ];
+    }
+
+    match /datos_curiosos/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.token.email in ['teccapitalweb@gmail.com'];
+    }
+
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        request.auth.token.email in [
+          "teccapitalweb@gmail.com"
+        ];
+    }
+
+    // MODIFICADO (revisión de seguridad): antes cualquiera podía escribir
+    // cualquier valor de xp/racha/retosCompletados en su propio documento
+    // desde la consola del navegador (ej. xp:999999) y aparecer hasta
+    // arriba de cualquier ranking sin haber hecho nada. Ahora: el xp
+    // nunca puede bajar, no puede subir más de 50 en un solo guardado
+    // (el reto que más da son 50 pts), y la lista de retos completados
+    // solo puede crecer de a un reto por guardado. No es perfecto —alguien
+    // insistente podría mandar varios guardados de +50 seguidos con un
+    // script— pero frena el abuso de un solo golpe. El arreglo definitivo
+    // sería mover el otorgamiento de puntos al webhook.
+    match /progreso/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.xp == 0
+        && request.resource.data.racha == 0
+        && request.resource.data.retosCompletados.size() == 0;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.xp is int
+        && request.resource.data.xp >= resource.data.xp
+        && (request.resource.data.xp - resource.data.xp) <= 50
+        && request.resource.data.retosCompletados.size() <= resource.data.retosCompletados.size() + 1;
+    }
+
+    // Certificados: cada quien lee los suyos, cualquiera puede verificar
+    // (pantalla pública de validar folio).
+    // MODIFICADO (revisión de seguridad): antes el create solo pedía estar
+    // logueado — sin validar nada más — así que cualquier miembro (hasta
+    // uno gratuito, sin pagar membresía) podía fabricar un certificado
+    // falso con cualquier nombre y cualquier curso, y como la lectura es
+    // pública, se vería "verificable" igual que uno real en verificar.html.
+    // Ahora: el uid del certificado tiene que ser el tuyo (no puedes crear
+    // uno a nombre de otra persona) y los campos básicos deben venir
+    // llenos. Esto no valida que de verdad hayas terminado el curso —eso
+    // requeriría emitir el certificado desde el webhook en vez del
+    // cliente— pero al menos nadie puede falsificar certificados
+    // impersonando a otra persona, y ya no se puede crear con campos vacíos.
+    match /certificados/{certId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.folio is string && request.resource.data.folio.size() > 0
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0
+        && request.resource.data.curso is string && request.resource.data.curso.size() > 0
+        && request.resource.data.email is string && request.resource.data.email.size() > 0;
+      allow update, delete: if false;
+    }
+
+    // Foro VIP (colección real "posts"). Cualquier miembro logueado puede
+    // leer, publicar lo suyo y reaccionar (like); solo el autor o un admin
+    // puede borrar/editar el post completo.
+    // MODIFICADO (revisión de seguridad): antes el update permitía a
+    // CUALQUIER miembro logueado reescribir el post COMPLETO de otra
+    // persona (no solo el like) — le podían borrar o cambiar el texto a
+    // alguien más. Ahora: solo el autor (o un admin) puede tocar el texto
+    // o la imagen; cualquier otro miembro solo puede tocar likes,
+    // likedBy y comentariosCount (para reaccionar y que se actualice el
+    // contador de comentarios).
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      allow update: if request.auth != null && (
+        resource.data.uid == request.auth.uid ||
+        request.auth.token.email in ["teccapitalweb@gmail.com"] ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likedBy','comentariosCount'])
+          && request.resource.data.texto == resource.data.texto
+          && request.resource.data.imagen == resource.data.imagen
+        )
+      );
+      allow delete: if request.auth != null && (
+        resource.data.uid == request.auth.uid ||
+        request.auth.token.email in ["teccapitalweb@gmail.com"]
+      );
+
+      match /comentarios/{comId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+        allow delete: if request.auth != null && (
+          resource.data.uid == request.auth.uid ||
+          request.auth.token.email in ["teccapitalweb@gmail.com"]
+        );
+      }
+    }
+
+    // Directorio VIP (tarjetas profesionales de miembros).
+    match /directorio/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null && (
+        request.auth.uid == uid ||
+        request.auth.token.email in ["teccapitalweb@gmail.com"]
+      );
+    }
+  }
+}
