@@ -87,11 +87,15 @@ export async function obtenerUrlMaterial({ cursoId, materialIndex, uid, esAdmin 
     return url ? { url } : { error: 'material-sin-url' };
   }
 
-  if (meta.disponibleSiempre === true || curso.disponibleSiempre === true) {
+  if (meta.disponibleSiempre === true) {
     const url = await leerUrlReal();
     return url ? { url } : { error: 'material-sin-url' };
   }
 
+  // Ligado a una clase: manda sobre curso.disponibleSiempre ("modo prueba")
+  // — ese interruptor solo bypasea la espera por días, no el avance por
+  // clase (si no, un curso en modo prueba destrabaría todos los materiales
+  // de golpe aunque tengan clase asignada).
   if (typeof meta.desbloqueaConClase === 'number') {
     const idx = meta.desbloqueaConClase - 1;
     let desbloqueada = idx <= 0; // la primera clase de un curso VIP siempre está abierta
@@ -105,6 +109,11 @@ export async function obtenerUrlMaterial({ cursoId, materialIndex, uid, esAdmin 
       desbloqueada = vistas.includes(anteriorNum);
     }
     if (!desbloqueada) return { error: 'clase-no-desbloqueada' };
+    const url = await leerUrlReal();
+    return url ? { url } : { error: 'material-sin-url' };
+  }
+
+  if (curso.disponibleSiempre === true) {
     const url = await leerUrlReal();
     return url ? { url } : { error: 'material-sin-url' };
   }
