@@ -151,6 +151,15 @@ service cloud.firestore {
       }
     }
 
+    // Encuesta de segmentación de clientes (modal en dulcelabfood.com).
+    // Solo la escribe/lee el Admin SDK del webhook (routes/encuesta.js):
+    // guardar una respuesta no debe requerir login (la contesta cualquier
+    // visitante) y los resultados agregados son para el admin, así que
+    // ninguno de los dos pasa por el cliente de Firestore directo.
+    match /encuesta_clientes/{id} {
+      allow read, write: if false;
+    }
+
     // Directorio VIP (tarjetas profesionales de miembros).
     match /directorio/{uid} {
       allow read: if request.auth != null;

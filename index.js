@@ -31,6 +31,7 @@ import adminRoutes from './routes/admin.js';
 import bunnyRoutes from './routes/bunny.js';
 import certificadosRoutes from './routes/certificados.js';
 import materialesRoutes from './routes/materiales.js';
+import encuestaRoutes from './routes/encuesta.js';
 
 // Cron
 import { syncNewsData } from './services/news.js';
@@ -40,7 +41,11 @@ const app = express();
 // Origin que mande el caller — en la práctica es CORS abierto para todas
 // las rutas, incluidas las de admin/Stripe. Se restringe al origen real
 // del panel (vip-panel.html / vip-admin.html viven en el mismo dominio).
-const ALLOWED_ORIGINS = [env.panelUrl];
+// MODIFICADO: se agrega publicSiteUrl (dulcelabfood.com) porque la encuesta
+// de /api/encuesta la contesta cualquier visitante del landing, no solo
+// gente logueada en el panel VIP. Las demás rutas (admin, stripe, etc.)
+// siguen protegidas por su propia verificación de token, no por CORS.
+const ALLOWED_ORIGINS = [env.panelUrl, env.publicSiteUrl];
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
@@ -63,6 +68,7 @@ app.use('/noticias', newsRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api/bunny', bunnyRoutes);
 app.use('/api/materiales', materialesRoutes);
+app.use('/api/encuesta', encuestaRoutes);
 app.use('/certificados', certificadosRoutes);
 app.use('/', healthRoutes);
 
@@ -89,6 +95,8 @@ app.listen(env.port, () => {
   console.log('     POST /api/materiales/url            · url real de un material (PDF/Drive), protegida');
   console.log('     POST /api/materiales/guardar        · guarda url de un material (admin)');
   console.log('     POST /api/materiales/migrar         · migra materiales viejos a modo seguro (admin, una vez)');
+  console.log('     POST /api/encuesta/responder        · guarda una respuesta de la encuesta (pública)');
+  console.log('     GET  /api/encuesta/resultados       · lista respuestas para el panel (admin)');
   console.log('     POST /certificados/emitir           · genera PDF + envía por correo');
   console.log('     GET  /noticias/sync?secret=         · cron manual');
   console.log('     GET  /noticias/lista?limite=         · lista pública (admin + panel)');

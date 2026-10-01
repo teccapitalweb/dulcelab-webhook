@@ -40,6 +40,7 @@ index.js   entry point
 | `FIREBASE_PROJECT_ID` | `dulcelab-club` |
 | `FIREBASE_SERVICE_ACCOUNT` | **NUEVA** — JSON de una cuenta de servicio del proyecto `dulcelab-club` (ver abajo cómo sacarla) |
 | `PANEL_URL` | `https://club.dulcelabfood.com` |
+| `PUBLIC_SITE_URL` | `https://dulcelabfood.com` (opcional, ya es el default — solo hace falta si el landing se sirve desde otro dominio) |
 | `MAIL_FROM` | `DulceLab Food <noreply@dulcelabfood.com>` (o el correo que uses con Resend) |
 | `CRON_SECRET` | El que tú elijas, distinto al de BioNova |
 | `RESEND_API_KEY`, `NEWSDATA_API_KEY`, `BUNNY_STREAM_LIBRARY_ID`, `BUNNY_TOKEN_AUTH_KEY` | Opcionales — solo si vas a usar correo transaccional / noticias / Bunny Stream |
@@ -82,6 +83,8 @@ sola línea o como venga) como valor de esa variable en Railway.
 - `POST /api/materiales/guardar` — guarda la URL real de un material (admin)
 - `POST /api/materiales/eliminar` — reacomoda la subcolección protegida al borrar un material (admin)
 - `POST /api/materiales/migrar` — mueve materiales viejos a la subcolección protegida (admin, una vez)
+- `POST /api/encuesta/responder` — guarda una respuesta de la encuesta del landing (pública, sin login)
+- `GET  /api/encuesta/resultados` — lista todas las respuestas para el panel (admin)
 - `GET  /noticias/sync?secret=` — dispara el cron manualmente
 - `GET  /test-correo?to=` — prueba el correo sin gastar pagos
 - `GET  /health` — health check
