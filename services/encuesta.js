@@ -78,3 +78,18 @@ export async function obtenerRespuestas() {
     };
   });
 }
+
+// Borra TODAS las respuestas (para limpiar datos de prueba). Lotes de 400
+// porque Firestore limita a 500 operaciones por batch.
+export async function borrarTodasLasRespuestas() {
+  let borradas = 0;
+  for (;;) {
+    const snap = await db().collection('encuesta_clientes').limit(400).get();
+    if (snap.empty) break;
+    const batch = db().batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    borradas += snap.size;
+  }
+  return borradas;
+}

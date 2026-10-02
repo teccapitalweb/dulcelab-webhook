@@ -5,7 +5,7 @@
 
 import express from 'express';
 import admin from 'firebase-admin';
-import { guardarRespuesta, obtenerRespuestas } from '../services/encuesta.js';
+import { guardarRespuesta, obtenerRespuestas, borrarTodasLasRespuestas } from '../services/encuesta.js';
 
 const router = express.Router();
 
@@ -47,6 +47,20 @@ router.get('/resultados', async (req, res) => {
   } catch (err) {
     console.error('❌ /api/encuesta/resultados error:', err.message);
     res.status(500).json({ error: 'No se pudieron obtener los resultados' });
+  }
+});
+
+// POST /api/encuesta/borrar-todas · solo admin · borra todas las respuestas
+// (limpiar pruebas). El panel pide confirmación antes de llamarlo.
+router.post('/borrar-todas', express.json(), async (req, res) => {
+  try {
+    const esAdmin = await verificarAdmin(req);
+    if (!esAdmin) return res.status(403).json({ error: 'Solo un admin puede borrar las respuestas' });
+    const borradas = await borrarTodasLasRespuestas();
+    res.json({ ok: true, borradas });
+  } catch (err) {
+    console.error('❌ /api/encuesta/borrar-todas error:', err.message);
+    res.status(500).json({ error: 'No se pudieron borrar las respuestas' });
   }
 });
 
