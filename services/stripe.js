@@ -12,6 +12,31 @@ import {
 import { enviarBienvenida } from './email.js';
 
 // ───────────────────────────────────────────────────────────────
+// Compatibilidad con versiones nuevas de la API de Stripe.
+// El destino del webhook puede entregar los eventos en una versión más nueva
+// que la que fija este servidor ('2024-06-20'). En las nuevas, el fin del periodo
+// vive en los items de la suscripción y la factura guarda la suscripción en
+// parent.subscription_details. Estas funciones leen ambos formatos, y para los
+// eventos de suscripción/factura se vuelve a leer el objeto con el cliente fijo.
+// ───────────────────────────────────────────────────────────────
+function finPeriodo(sub) {
+  return sub?.current_period_end ?? sub?.items?.data?.[0]?.current_period_end ?? null;
+}
+function subIdDeInvoice(inv) {
+  const v = inv?.subscription ?? inv?.parent?.subscription_details?.subscription ?? null;
+  return typeof v === 'string' ? v : (v && v.id) || null;
+}
+async function aVersionFija(tipo, obj) {
+  try {
+    if (tipo === 'subscription') return await stripe.subscriptions.retrieve(obj.id);
+    if (tipo === 'invoice') return await stripe.invoices.retrieve(obj.id);
+  } catch (e) {
+    console.warn('⚠️  No se pudo releer', tipo, obj?.id, '· se usa el evento tal cual:', e.message);
+  }
+  return obj;
+}
+
+// ───────────────────────────────────────────────────────────────
 // checkout.session.completed → activa la membresía en Firestore.
 // ───────────────────────────────────────────────────────────────
 export async function handleCheckoutCompleted(session) {
@@ -83,8 +108,8 @@ export async function handleSubscriptionChange(subscription) {
     activa,
     estado: status,
     cancelaAlFinal: !!subscription.cancel_at_period_end,
-    fechaProximaRenovacion: subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000) : null
+    fechaProximaRenovacion: finPeriodo(subscription)
+      ? new Date(finPeriodo(subscription) * 1000) : null
   });
 
   if (!docId) {
@@ -99,14 +124,15 @@ export async function handleSubscriptionChange(subscription) {
 // invoice.payment_succeeded / failed
 // ───────────────────────────────────────────────────────────────
 export async function handleInvoicePaid(invoice) {
-  if (!invoice.subscription) return;
+  const invSubId = subIdDeInvoice(invoice);
+  if (!invSubId) return;
   // Solo registramos si la suscripción es nuestra (existe en miembros)
-  const docId = await updateMiembroBySubscription(invoice.subscription, {});
+  const docId = await updateMiembroBySubscription(invSubId, {});
   if (!docId) { console.log('⏭️  Invoice de otro proyecto · ignorado'); return; }
 
   await registrarPago({
     invoiceId: invoice.id,
-    subscriptionId: invoice.subscription,
+    subscriptionId: invSubId,
     customerId: invoice.customer,
     email: invoice.customer_email,
     monto: (invoice.amount_paid || 0) / 100,
@@ -119,13 +145,14 @@ export async function handleInvoicePaid(invoice) {
 }
 
 export async function handleInvoiceFailed(invoice) {
-  if (!invoice.subscription) return;
-  const docId = await updateMiembroBySubscription(invoice.subscription, {});
+  const invSubId = subIdDeInvoice(invoice);
+  if (!invSubId) return;
+  const docId = await updateMiembroBySubscription(invSubId, {});
   if (!docId) return;
 
   await registrarPago({
     invoiceId: invoice.id,
-    subscriptionId: invoice.subscription,
+    subscriptionId: invSubId,
     customerId: invoice.customer,
     email: invoice.customer_email,
     monto: (invoice.amount_due || 0) / 100,
@@ -305,11 +332,11 @@ export async function processWebhookEvent(event) {
       await handleCheckoutCompleted(event.data.object); break;
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted':
-      await handleSubscriptionChange(event.data.object); break;
+      await handleSubscriptionChange(await aVersionFija('subscription', event.data.object)); break;
     case 'invoice.payment_succeeded':
-      await handleInvoicePaid(event.data.object); break;
+      await handleInvoicePaid(await aVersionFija('invoice', event.data.object)); break;
     case 'invoice.payment_failed':
-      await handleInvoiceFailed(event.data.object); break;
+      await handleInvoiceFailed(await aVersionFija('invoice', event.data.object)); break;
     default:
       console.log('   (sin handler para este evento)');
   }
