@@ -6,7 +6,7 @@ import express from 'express';
 import admin from 'firebase-admin';
 import {
   verifyWebhookSignature, processWebhookEvent,
-  createCheckoutSession, retrieveSession,
+  createCheckoutSession, retrieveSession, confirmarSesionPagada,
   cancelarSuscripcion, reactivarSuscripcion, crearBillingPortal
 } from '../services/stripe.js';
 
@@ -83,6 +83,17 @@ router.post('/checkout', express.json(), async (req, res) => {
   } catch (err) {
     console.error('❌ /stripe/checkout error:', err.message);
     res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /stripe/confirmar · { session_id } → activa la membresía si esa sesión está pagada y es de quien pregunta
+router.post('/confirmar', express.json(), requireSelfOrAdmin, async (req, res) => {
+  try {
+    const r = await confirmarSesionPagada({ sessionId: String(req.body?.session_id || ''), uid: req.usuarioToken.uid });
+    res.status(r.ok ? 200 : 400).json(r);
+  } catch (err) {
+    console.error('❌ /stripe/confirmar error:', err.message);
+    res.status(400).json({ ok: false, error: err.message });
   }
 });
 

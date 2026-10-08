@@ -10,6 +10,7 @@ import {
   leerPreciosConfig
 } from './firestore.js';
 import { enviarBienvenida } from './email.js';
+import { db, FieldValue } from '../config/firebase.js';
 
 // ───────────────────────────────────────────────────────────────
 // Compatibilidad con versiones nuevas de la API de Stripe.
@@ -47,6 +48,14 @@ export async function handleCheckoutCompleted(session) {
   const src = session.metadata?.source || '';
   if (src !== SOURCE) {
     console.log(`⏭️  Ignorado: pago de otro proyecto (source="${src}", esperaba "${SOURCE}")`);
+    return;
+  }
+
+  // Una misma compra puede procesarse por dos caminos (el webhook de Stripe y la confirmación
+  // que hace el panel al regresar del pago). Se anota la sesión para no activar ni escribir dos veces.
+  const marca = db.collection('stripe_sesiones').doc(session.id);
+  if ((await marca.get()).exists) {
+    console.log('⏭️  Sesión ya procesada:', session.id);
     return;
   }
 
@@ -94,6 +103,28 @@ export async function handleCheckoutCompleted(session) {
   } catch (e) {
     console.warn('⚠️  No se pudo enviar correo de bienvenida:', e.message);
   }
+
+  try {
+    await marca.set({ uid: uid || null, email: email || null, plan, procesadaEn: FieldValue.serverTimestamp() });
+  } catch (e) { console.warn('⚠️  No se pudo anotar la sesión:', e.message); }
+}
+
+// ───────────────────────────────────────────────────────────────
+// Confirmación desde el panel: al volver del pago (?checkout=success&session_id=...) el panel
+// le pide al servidor que revise esa sesión directamente en Stripe y active la membresía. Así la
+// activación no depende solo de que el webhook llegue bien (secreto mal puesto, retraso, etc.).
+// Solo funciona si la sesión es de DulceLab, está pagada y pertenece a la persona que la pide.
+// ───────────────────────────────────────────────────────────────
+export async function confirmarSesionPagada({ sessionId, uid }) {
+  if (!sessionId || !uid) return { ok: false, error: 'faltan-datos' };
+  const s = await stripe.checkout.sessions.retrieve(sessionId);
+  if ((s.metadata?.source || '') !== SOURCE) return { ok: false, error: 'sesion-ajena' };
+  const dueno = s.client_reference_id || s.metadata?.uid || '';
+  if (dueno !== uid) return { ok: false, error: 'sesion-de-otra-persona' };
+  const pagada = s.status === 'complete' && ['paid', 'no_payment_required'].includes(s.payment_status);
+  if (!pagada) return { ok: false, error: 'sin-pago', status: s.status, payment_status: s.payment_status };
+  await handleCheckoutCompleted(s);
+  return { ok: true };
 }
 
 // ───────────────────────────────────────────────────────────────
