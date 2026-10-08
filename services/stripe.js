@@ -372,6 +372,16 @@ export async function leerEstadoWebhook() {
   };
 }
 
+// A qué cuenta de Stripe pertenece la llave secreta que usa el servidor (para detectar llaves de otra cuenta).
+export async function leerCuentaStripe() {
+  try {
+    const a = await stripe.accounts.retrieve();
+    return { id: a.id, nombre: a.settings?.dashboard?.display_name || a.business_profile?.name || null };
+  } catch (e) {
+    return { id: null, nombre: null, error: String(e.message).slice(0, 160) };
+  }
+}
+
 // Últimos intentos de pago de DulceLab (la cuenta de Stripe es compartida: se filtran por la marca source).
 export async function listarIntentosPago({ limite = 30 } = {}) {
   const propias = [];

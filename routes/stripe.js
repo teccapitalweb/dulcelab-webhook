@@ -8,6 +8,7 @@ import {
   verifyWebhookSignature, processWebhookEvent,
   createCheckoutSession, retrieveSession, confirmarSesionPagada,
   registrarEstadoWebhook, leerEstadoWebhook, listarIntentosPago, activarSesionAdmin,
+  leerCuentaStripe,
   cancelarSuscripcion, reactivarSuscripcion, crearBillingPortal
 } from '../services/stripe.js';
 
@@ -100,9 +101,9 @@ function soloAdmin(req, res, next) {
 // GET /stripe/diagnostico · estado del webhook + últimos intentos de pago de DulceLab
 router.get('/diagnostico', soloAdmin, async (req, res) => {
   try {
-    const [webhook, intentos] = await Promise.all([leerEstadoWebhook(), listarIntentosPago({ limite: 30 })]);
+    const [webhook, intentos, cuenta] = await Promise.all([leerEstadoWebhook(), listarIntentosPago({ limite: 30 }), leerCuentaStripe()]);
     res.set('Cache-Control', 'no-store');
-    res.json({ webhook, intentos });
+    res.json({ webhook, intentos, cuenta });
   } catch (err) {
     console.error('❌ /stripe/diagnostico error:', err.message);
     res.status(500).json({ error: err.message });
