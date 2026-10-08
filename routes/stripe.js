@@ -7,6 +7,7 @@ import admin from 'firebase-admin';
 import {
   verifyWebhookSignature, processWebhookEvent,
   createCheckoutSession, retrieveSession, confirmarSesionPagada,
+  registrarEstadoWebhook, leerEstadoWebhook, listarIntentosPago, activarSesionAdmin,
   cancelarSuscripcion, reactivarSuscripcion, crearBillingPortal
 } from '../services/stripe.js';
 
@@ -63,13 +64,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     event = verifyWebhookSignature(req.body, sig);
   } catch (err) {
     console.error('⚠️  Webhook signature invalid:', err.message);
+    registrarEstadoWebhook({ ultimoRechazoEn: new Date(), ultimoRechazoMotivo: String(err.message).slice(0, 200) });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
+  registrarEstadoWebhook({ ultimoEventoEn: new Date(), ultimoEventoTipo: event.type });
   try {
     await processWebhookEvent(event);
     res.json({ received: true });
   } catch (err) {
     console.error('❌ Error procesando webhook:', err);
+    registrarEstadoWebhook({ ultimoErrorEn: new Date(), ultimoErrorMotivo: String(err.message).slice(0, 200) });
     res.status(500).send('Error interno');
   }
 });
@@ -83,6 +87,35 @@ router.post('/checkout', express.json(), async (req, res) => {
   } catch (err) {
     console.error('❌ /stripe/checkout error:', err.message);
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Diagnóstico de pagos: solo administradores.
+function soloAdmin(req, res, next) {
+  requireSelfOrAdmin(req, res, () => {
+    if (!req.usuarioToken?.esAdmin) return res.status(403).json({ error: 'Solo un admin puede ver esto' });
+    next();
+  });
+}
+// GET /stripe/diagnostico · estado del webhook + últimos intentos de pago de DulceLab
+router.get('/diagnostico', soloAdmin, async (req, res) => {
+  try {
+    const [webhook, intentos] = await Promise.all([leerEstadoWebhook(), listarIntentosPago({ limite: 30 })]);
+    res.set('Cache-Control', 'no-store');
+    res.json({ webhook, intentos });
+  } catch (err) {
+    console.error('❌ /stripe/diagnostico error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+// POST /stripe/diagnostico/activar · { session_id } → activa una compra completa que no se activó sola
+router.post('/diagnostico/activar', express.json(), soloAdmin, async (req, res) => {
+  try {
+    const r = await activarSesionAdmin(String(req.body?.session_id || ''));
+    res.status(r.ok ? 200 : 400).json(r);
+  } catch (err) {
+    console.error('❌ /stripe/diagnostico/activar error:', err.message);
+    res.status(400).json({ ok: false, error: err.message });
   }
 });
 

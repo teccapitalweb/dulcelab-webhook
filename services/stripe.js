@@ -349,6 +349,73 @@ export async function crearBillingPortal({ uid, email }) {
 // ───────────────────────────────────────────────────────────────
 // Verificar firma del webhook (seguridad)
 // ───────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
+// Diagnóstico de pagos (lo usa la sección "Pagos" del panel de administración)
+// ───────────────────────────────────────────────────────────────
+// El webhook anota aquí cuándo llegó el último aviso de Stripe y cuándo rechazó uno por firma
+// (secreto mal puesto), para poder revisarlo sin abrir los registros de Railway.
+export async function registrarEstadoWebhook(datos) {
+  try {
+    await db.collection('stripe_estado').doc('webhook').set({ ...datos, actualizadoEn: FieldValue.serverTimestamp() }, { merge: true });
+  } catch (e) { console.warn('⚠️  No se pudo anotar el estado del webhook:', e.message); }
+}
+
+export async function leerEstadoWebhook() {
+  const d = await db.collection('stripe_estado').doc('webhook').get();
+  if (!d.exists) return {};
+  const x = d.data();
+  const iso = (t) => (t && t.toDate ? t.toDate().toISOString() : null);
+  return {
+    ultimoEventoEn: iso(x.ultimoEventoEn), ultimoEventoTipo: x.ultimoEventoTipo || null,
+    ultimoRechazoEn: iso(x.ultimoRechazoEn), ultimoRechazoMotivo: x.ultimoRechazoMotivo || null,
+    ultimoErrorEn: iso(x.ultimoErrorEn), ultimoErrorMotivo: x.ultimoErrorMotivo || null
+  };
+}
+
+// Últimos intentos de pago de DulceLab (la cuenta de Stripe es compartida: se filtran por la marca source).
+export async function listarIntentosPago({ limite = 30 } = {}) {
+  const propias = [];
+  let after;
+  for (let pagina = 0; pagina < 5 && propias.length < limite; pagina++) {
+    const r = await stripe.checkout.sessions.list({ limit: 100, ...(after ? { starting_after: after } : {}) });
+    for (const s of r.data) {
+      if ((s.metadata?.source || '') === SOURCE) propias.push(s);
+      if (propias.length >= limite) break;
+    }
+    if (!r.has_more || !r.data.length) break;
+    after = r.data[r.data.length - 1].id;
+  }
+  const filas = [];
+  for (const s of propias) {
+    const uid = s.client_reference_id || s.metadata?.uid || null;
+    const procesada = (await db.collection('stripe_sesiones').doc(s.id).get()).exists;
+    let activa = false;
+    if (uid) { const m = await db.collection('miembros').doc(uid).get(); activa = m.exists ? !!m.data().activa : false; }
+    const pagado = s.status === 'complete' && s.payment_status === 'paid';
+    const sinCobro = s.status === 'complete' && s.payment_status === 'no_payment_required';
+    const estado = pagado ? 'pagado' : sinCobro ? 'completo-sin-cobro' : s.status === 'expired' ? 'expirada' : s.status === 'open' ? 'sin-terminar' : String(s.status);
+    filas.push({
+      id: s.id, creada: new Date(s.created * 1000).toISOString(),
+      email: s.customer_details?.email || s.customer_email || null,
+      plan: s.metadata?.plan || null,
+      monto: (s.amount_total || 0) / 100, descuento: (s.total_details?.amount_discount || 0) / 100,
+      estado, activa, procesada, puedeActivar: (pagado || sinCobro) && !activa
+    });
+  }
+  return filas;
+}
+
+// El administrador activa a mano una compra completa que no se activó sola.
+export async function activarSesionAdmin(sessionId) {
+  const s = await stripe.checkout.sessions.retrieve(String(sessionId || ''));
+  if ((s.metadata?.source || '') !== SOURCE) return { ok: false, error: 'sesion-ajena' };
+  const ok = s.status === 'complete' && ['paid', 'no_payment_required'].includes(s.payment_status);
+  if (!ok) return { ok: false, error: 'sin-pago', status: s.status, payment_status: s.payment_status };
+  await db.collection('stripe_sesiones').doc(s.id).delete().catch(() => {});
+  await handleCheckoutCompleted(s);
+  return { ok: true };
+}
+
 export function verifyWebhookSignature(rawBody, signature) {
   return stripe.webhooks.constructEvent(rawBody, signature, STRIPE_CONFIG.webhookSecret);
 }
