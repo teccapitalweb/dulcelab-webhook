@@ -24,6 +24,7 @@ import './config/stripe.js';
 
 // Routes
 import stripeRoutes from './routes/stripe.js';
+import regaloRoutes from './routes/regalo.js';
 import membershipRoutes from './routes/membership.js';
 import newsRoutes from './routes/news.js';
 import healthRoutes from './routes/health.js';
@@ -69,6 +70,7 @@ app.use('/admin', adminRoutes);
 app.use('/api/bunny', bunnyRoutes);
 app.use('/api/materiales', materialesRoutes);
 app.use('/api/encuesta', encuestaRoutes);
+app.use('/api/regalo-bienvenida', regaloRoutes);
 app.use('/certificados', certificadosRoutes);
 app.use('/', healthRoutes);
 
