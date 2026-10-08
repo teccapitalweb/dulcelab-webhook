@@ -48,9 +48,15 @@ export function validateEnv() {
   console.log('✅ Variables de entorno validadas');
 }
 
+function limpiarSecreto(v) {
+  return typeof v === 'string' ? v.trim().replace(/^["']+|["']+$/g, '').trim() : v;
+}
+
 export const env = {
-  stripeSecret: process.env.STRIPE_SECRET_KEY,
-  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  // Se limpian espacios, saltos de línea y comillas que a veces se cuelan al pegar la llave en Railway
+  // (un espacio sobrante en el secreto del webhook hace que la firma nunca coincida).
+  stripeSecret: limpiarSecreto(process.env.STRIPE_SECRET_KEY),
+  stripeWebhookSecret: limpiarSecreto(process.env.STRIPE_WEBHOOK_SECRET),
   stripePriceMensual: process.env.STRIPE_PRICE_MENSUAL,
   stripePriceAnual: process.env.STRIPE_PRICE_ANUAL,
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'dulcelab-club',
