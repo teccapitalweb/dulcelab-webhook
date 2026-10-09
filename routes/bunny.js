@@ -5,7 +5,7 @@ import express from 'express';
 import admin from 'firebase-admin';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { db } from '../config/firebase.js';
+import { db, FieldValue } from '../config/firebase.js';
 import { env } from '../config/env.js';
 import { getMembership } from '../services/firestore.js';
 
@@ -24,6 +24,35 @@ function normalizar(texto) {
   return String(texto || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+async function verificarAdmin(req) {
+  const usuario = await verificarUsuario(req);
+  return usuario && correosAdmin.has(String(usuario.email || '').toLowerCase()) ? usuario : null;
+}
+
+function fechaISO(valor) {
+  const fecha = valor?.toDate?.() || (valor instanceof Date ? valor : null);
+  return fecha && !Number.isNaN(fecha.getTime()) ? fecha.toISOString() : null;
+}
+
+function diaLocal(fecha) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(fecha);
+}
+
+async function listarCuentasAuth() {
+  const cuentas = new Map();
+  let pageToken;
+  do {
+    const pagina = await admin.auth().listUsers(1000, pageToken);
+    pagina.users.forEach(usuario => cuentas.set(usuario.uid, {
+      email: usuario.email || '', nombre: usuario.displayName || usuario.email || 'Miembro'
+    }));
+    pageToken = pagina.pageToken;
+  } while (pageToken);
+  return cuentas;
 }
 
 function puntajeTitulo(a, b) {
@@ -116,7 +145,7 @@ router.post('/curso-prueba', async (req, res) => {
       if (!c || c.marcarProximamente === true || c.pruebaGratis === false || !(Array.isArray(c.sesiones) && c.sesiones.length)) {
         return { error: 'curso-no-disponible' };
       }
-      tx.set(ref, { cursoPrueba: pedido }, { merge: true });
+      tx.set(ref, { cursoPrueba: pedido, cursoPruebaAt: FieldValue.serverTimestamp() }, { merge: true });
       return { cursoId: pedido };
     });
     if (r.error) return res.status(400).json({ error: r.error });
@@ -125,6 +154,89 @@ router.post('/curso-prueba', async (req, res) => {
   } catch (error) {
     console.error('[Bunny curso-prueba]', error);
     return res.status(500).json({ error: 'No se pudo guardar el curso de prueba' });
+  }
+});
+
+// GET /api/bunny/pruebas-gratis · resumen privado para el administrador.
+// La elección se guarda en progreso/{uid}; los datos de pago viven en miembros/{uid}.
+// Se cruzan en el servidor para no publicar correos ni estados de membresía fuera del panel admin.
+router.get('/pruebas-gratis', async (req, res) => {
+  try {
+    if (!await verificarAdmin(req)) return res.status(403).json({ error: 'Solo un administrador puede ver las pruebas gratuitas' });
+
+    const [progresoSnap, miembrosSnap, cursosSnap, cuentasAuth] = await Promise.all([
+      db.collection('progreso').get(),
+      db.collection('miembros').get(),
+      db.collection('cursos').get(),
+      listarCuentasAuth()
+    ]);
+    const miembros = new Map();
+    miembrosSnap.docs.forEach(doc => {
+      const data = doc.data() || {};
+      if (data.uid) miembros.set(String(data.uid), data);
+      miembros.set(doc.id, data);
+    });
+    const cursos = new Map(cursosSnap.docs.map(doc => [doc.id, doc.data() || {}]));
+    const elegidas = progresoSnap.docs.map(doc => {
+      const data = doc.data() || {};
+      if (!data.cursoPrueba) return null;
+      const miembro = miembros.get(doc.id) || {};
+      const cuenta = cuentasAuth.get(doc.id) || {};
+      const curso = cursos.get(String(data.cursoPrueba)) || {};
+      const elegidaAt = data.cursoPruebaAt || data.updatedAt || data.createdAt || null;
+      return {
+        uid: doc.id,
+        cursoId: String(data.cursoPrueba),
+        curso: String(curso.titulo || 'Curso eliminado'),
+        nombre: String(miembro.nombre || miembro.displayName || cuenta.nombre || miembro.email || 'Miembro'),
+        email: String(miembro.email || cuenta.email || ''),
+        pagado: miembro.activa === true || miembro.activo === true,
+        fecha: fechaISO(elegidaAt),
+        orden: (elegidaAt?.toDate?.() || new Date(0)).getTime()
+      };
+    }).filter(Boolean);
+    const miembrosUnicos = new Map();
+    miembrosSnap.docs.forEach(doc => {
+      const data = doc.data() || {};
+      const clave = String(data.uid || doc.id);
+      miembrosUnicos.set(clave, data);
+    });
+    const cursoConteo = new Map();
+    elegidas.forEach(x => cursoConteo.set(x.cursoId, (cursoConteo.get(x.cursoId) || 0) + 1));
+    const hoy = new Date();
+    const serie = Array.from({ length: 14 }, (_, i) => {
+      const fecha = new Date(hoy.getTime() - (13 - i) * 86400000);
+      return { dia: diaLocal(fecha), cantidad: 0 };
+    });
+    const porDia = new Map(serie.map(x => [x.dia, x]));
+    elegidas.forEach(x => {
+      if (!x.fecha) return;
+      const fila = porDia.get(diaLocal(new Date(x.fecha)));
+      if (fila) fila.cantidad++;
+    });
+    const totalCuentas = Math.max(cuentasAuth.size, miembrosUnicos.size);
+    const elegidasPagadas = elegidas.filter(x => x.pagado).length;
+    const pagaronSinElegir = [...miembrosUnicos.entries()].filter(([uid, m]) =>
+      (m.activa === true || m.activo === true) && !elegidas.some(x => x.uid === uid)
+    ).length;
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      totales: {
+        elegidas: elegidas.length,
+        cuentas: totalCuentas,
+        sinElegir: Math.max(0, totalCuentas - elegidas.length),
+        eligieronYPagaron: elegidasPagadas,
+        pagaronSinElegir
+      },
+      cursos: [...cursoConteo.entries()].map(([id, cantidad]) => ({
+        id, titulo: String(cursos.get(id)?.titulo || 'Curso eliminado'), cantidad
+      })).sort((a, b) => b.cantidad - a.cantidad || a.titulo.localeCompare(b.titulo, 'es')),
+      serie,
+      ultimas: elegidas.sort((a, b) => b.orden - a.orden).slice(0, 30).map(({ orden, ...x }) => x)
+    });
+  } catch (error) {
+    console.error('[Bunny pruebas-gratis]', error);
+    return res.status(500).json({ error: 'No se pudo obtener el resumen de pruebas gratuitas' });
   }
 });
 
