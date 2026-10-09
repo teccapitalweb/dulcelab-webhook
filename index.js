@@ -34,6 +34,7 @@ import bunnyRoutes from './routes/bunny.js';
 import certificadosRoutes from './routes/certificados.js';
 import materialesRoutes from './routes/materiales.js';
 import encuestaRoutes from './routes/encuesta.js';
+import metricasRoutes from './routes/metricas.js';
 
 // Cron
 import { syncNewsData } from './services/news.js';
@@ -47,7 +48,7 @@ const app = express();
 // de /api/encuesta la contesta cualquier visitante del landing, no solo
 // gente logueada en el panel VIP. Las demás rutas (admin, stripe, etc.)
 // siguen protegidas por su propia verificación de token, no por CORS.
-const ALLOWED_ORIGINS = [env.panelUrl, env.publicSiteUrl];
+const ALLOWED_ORIGINS = [env.panelUrl, env.publicSiteUrl, 'https://www.dulcelabfood.com'];
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
@@ -71,6 +72,7 @@ app.use('/admin', adminRoutes);
 app.use('/api/bunny', bunnyRoutes);
 app.use('/api/materiales', materialesRoutes);
 app.use('/api/encuesta', encuestaRoutes);
+app.use('/api/metricas', metricasRoutes);
 app.use('/api/regalo-bienvenida', regaloRoutes);
 app.use('/api/biblioteca', bibliotecaRoutes);
 app.use('/certificados', certificadosRoutes);

@@ -82,8 +82,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 // POST /stripe/checkout · crea sesión Embedded Checkout → clientSecret
 router.post('/checkout', express.json(), async (req, res) => {
   try {
-    const { plan, uid, email } = req.body;
-    const result = await createCheckoutSession({ plan, uid, email });
+    const { plan, uid, email, vid, origen } = req.body;
+    const result = await createCheckoutSession({ plan, uid, email, vid, origen });
     res.json(result);
   } catch (err) {
     console.error('❌ /stripe/checkout error:', err.message);

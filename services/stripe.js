@@ -11,6 +11,7 @@ import {
 } from './firestore.js';
 import { enviarBienvenida } from './email.js';
 import { db, FieldValue } from '../config/firebase.js';
+import { clasificarOrigen, registrarCompra, vidValido } from './metricas.js';
 
 // ───────────────────────────────────────────────────────────────
 // Compatibilidad con versiones nuevas de la API de Stripe.
@@ -107,6 +108,15 @@ export async function handleCheckoutCompleted(session) {
   try {
     await marca.set({ uid: uid || null, email: email || null, plan, procesadaEn: FieldValue.serverTimestamp() });
   } catch (e) { console.warn('⚠️  No se pudo anotar la sesión:', e.message); }
+
+  // Métricas: de qué medio llegó quien compró (no debe estorbar a la activación)
+  try {
+    await registrarCompra({
+      vid: session.metadata?.vid, sessionId: session.id, plan,
+      monto: (session.amount_total || 0) / 100,
+      fuente: session.metadata?.fuente, medio: session.metadata?.medio, campana: session.metadata?.campana
+    });
+  } catch (e) { console.warn('⚠️  No se pudo registrar la métrica de compra:', e.message); }
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -194,13 +204,23 @@ export async function handleInvoiceFailed(invoice) {
   console.log('⚠️  Pago falló:', invoice.id);
 }
 
+// Datos de origen para las métricas: de qué medio llegó la persona (se guardan en la sesión de pago).
+function metaOrigen(vid, origen) {
+  const o = clasificarOrigen(origen);
+  return {
+    ...(vidValido(vid) ? { vid: String(vid) } : {}),
+    fuente: o.fuente.slice(0, 80), medio: o.medio.slice(0, 60),
+    ...(o.campana ? { campana: o.campana.slice(0, 80) } : {})
+  };
+}
+
 // ───────────────────────────────────────────────────────────────
 // Crear sesión de Embedded Checkout (con cupones)
 // ───────────────────────────────────────────────────────────────
 // MODIFICADO (patrón SYNOVA): en vez de un Price ID fijo, arma el precio en
 // el momento leyendo config/club — cambiar el precio en vip-admin cambia el
 // cobro real desde la siguiente suscripción, sin tocar Stripe ni Railway.
-export async function createCheckoutSession({ plan, uid, email }) {
+export async function createCheckoutSession({ plan, uid, email, vid, origen }) {
   if (!['mensual', 'anual'].includes(plan)) {
     throw new Error('Plan inválido (debe ser mensual o anual)');
   }
@@ -226,7 +246,7 @@ export async function createCheckoutSession({ plan, uid, email }) {
     allow_promotion_codes: true,                       // campo de cupón en el checkout
     client_reference_id: uid || undefined,
     customer_email: email || undefined,
-    metadata: { plan, uid: uid || '', source: SOURCE, precioAlCobrar: String(montoMXN) }, // ← marca de proyecto
+    metadata: { plan, uid: uid || '', source: SOURCE, precioAlCobrar: String(montoMXN), ...metaOrigen(vid, origen) }, // ← marca de proyecto
     subscription_data: {
       metadata: { plan, uid: uid || '', source: SOURCE }
     },
