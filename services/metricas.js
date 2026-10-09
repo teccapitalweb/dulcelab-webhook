@@ -130,6 +130,10 @@ export async function resumen(dias = 30) {
   const porFuente = new Map();
   const porDia = new Map();
   const porCamp = new Map();
+  const porPagina = new Map();
+  // Matriz [día de semana][hora] para el mapa de calor. Solo usa la hora de
+  // la última visita anónima del día; no guarda IP, correo ni ubicación.
+  const calor = Array.from({ length: 7 }, () => Array(24).fill(0));
   const disp = { celular: new Set(), computadora: new Set(), tablet: new Set() };
 
   const celda = (mapa, k, init) => { if (!mapa.has(k)) mapa.set(k, init()); return mapa.get(k); };
@@ -145,6 +149,20 @@ export async function resumen(dias = 30) {
     Object.keys(pasos).forEach((k) => { if (p[k]) pasos[k].add(vid); });
     if (p.club || p.panel) clubOPanel.add(vid);
     if (disp[d.dispositivo]) disp[d.dispositivo].add(vid);
+
+    Object.entries(d.paginas || {}).forEach(([pagina, vistas]) => {
+      porPagina.set(pagina, (porPagina.get(pagina) || 0) + (Number(vistas) || 0));
+    });
+    try {
+      const fecha = d.ultimo && typeof d.ultimo.toDate === 'function' ? d.ultimo.toDate() : null;
+      if (fecha) {
+        const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short', hour: 'numeric', hourCycle: 'h23' }).formatToParts(fecha);
+        const diaTxt = partes.find(x => x.type === 'weekday')?.value;
+        const hora = Number(partes.find(x => x.type === 'hour')?.value);
+        const dia = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 })[diaTxt];
+        if (Number.isInteger(dia) && Number.isInteger(hora) && hora >= 0 && hora < 24) calor[dia][hora] += 1;
+      }
+    } catch (_) {}
 
     const f = celda(porFuente, d.fuente || 'Directo / no identificado', () => ({ visitantes: new Set(), membresia: new Set(), checkout: new Set(), registro: new Set(), compras: 0, ingresos: 0, medio: d.medio || '' }));
     f.visitantes.add(vid);
@@ -186,6 +204,8 @@ export async function resumen(dias = 30) {
     campanas: [...porCamp.values()].map((c) => ({ fuente: c.fuente, campana: c.campana, visitantes: c.visitantes.size, compras: c.compras }))
       .sort((a, b) => b.visitantes - a.visitantes).slice(0, 15),
     dispositivos: { celular: disp.celular.size, computadora: disp.computadora.size, tablet: disp.tablet.size },
+    paginas: [...porPagina.entries()].map(([pagina, vistas]) => ({ pagina, vistas })).sort((a, b) => b.vistas - a.vistas),
+    calor,
     serie,
     truncado: snap.size >= 60000
   };
