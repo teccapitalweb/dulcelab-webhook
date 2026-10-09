@@ -19,8 +19,6 @@
 
 import { db } from '../config/firebase.js';
 
-const MATERIALES_GRATIS = 1; // mismo valor que MATERIALES_GRATIS en vip-panel.html
-
 // Igual que _inferirTipoMaterial() en vip-panel.html — se usa una sola vez al
 // migrar, para que el material público guarde su tipo sin necesitar la URL.
 export function inferirTipo(url) {
@@ -30,16 +28,6 @@ export function inferirTipo(url) {
   if (u.endsWith('.pptx') || u.endsWith('.ppt') || u.includes('presentation')) return 'ppt';
   if (u.endsWith('.docx') || u.endsWith('.doc') || u.includes('document')) return 'doc';
   return 'pdf';
-}
-
-async function primerCursoConClases() {
-  const snap = await db.collection('cursos').orderBy('orden', 'asc').get();
-  for (const doc of snap.docs) {
-    const c = doc.data() || {};
-    if (c.marcarProximamente === true) continue;
-    if (Array.isArray(c.sesiones) && c.sesiones.length > 0) return { id: doc.id, data: c };
-  }
-  return null;
 }
 
 async function tieneMembresiaActiva(uid) {
@@ -80,8 +68,13 @@ export async function obtenerUrlMaterial({ cursoId, materialIndex, uid, esAdmin 
   const { activa: esVip, fechaAlta } = uid ? await tieneMembresiaActiva(uid) : { activa: false, fechaAlta: null };
 
   if (!esVip) {
-    const primero = await primerCursoConClases();
-    const esGratis = primero && primero.id === cursoId && materialIndex < MATERIALES_GRATIS;
+    // La prueba no es un curso fijo: cada cuenta puede elegir uno. Del curso
+    // elegido se entregan todas sus presentaciones menos la última, igual que
+    // las clases de prueba. La elección se guarda en progreso/{uid}.
+    const progreso = uid ? await db.collection('progreso').doc(uid).get() : null;
+    const cursoPrueba = progreso?.exists ? progreso.data().cursoPrueba : null;
+    const materialesGratis = Math.max(0, materiales.length - 1);
+    const esGratis = cursoPrueba === cursoId && materialIndex >= 0 && materialIndex < materialesGratis;
     if (!esGratis) return { error: 'membresia-requerida' };
     const url = await leerUrlReal();
     return url ? { url } : { error: 'material-sin-url' };
