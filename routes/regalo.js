@@ -11,8 +11,12 @@ import express from 'express';
 import admin from 'firebase-admin';
 import { db, FieldValue } from '../config/firebase.js';
 import { getMembership } from '../services/firestore.js';
+import { NIVELES } from '../data/retos.js';
 
 const router = express.Router();
+
+// Saldo gastable = XP ganados − XP ya gastados en materiales.
+const saldoDe = (d) => Math.max(0, (Number(d && d.xp) || 0) - (Number(d && d.xpGastado) || 0));
 
 export const REGALO_BIENVENIDA_XP = 150;
 
@@ -85,7 +89,7 @@ router.post('/curso', async (req, res) => {
       const snap = await tx.get(ref);
       const d = snap.exists ? snap.data() : {};
       const xpActual = Number.isFinite(Number(d.xp)) ? Number(d.xp) : 0;
-      if (d.cursosPremiados && d.cursosPremiados[cursoId]) return { nuevo: false, xp: xpActual, regalo: XP_CURSO_COMPLETADO };
+      if (d.cursosPremiados && d.cursosPremiados[cursoId]) return { nuevo: false, xp: xpActual, saldo: saldoDe(d), regalo: XP_CURSO_COMPLETADO };
 
       const vistas = (((d.clases || {})[cursoId] || {}).clasesVistas) || [];
       const completo = sesiones.every((s, i) => vistas.includes((s && s.numero) || (i + 1)));
@@ -93,7 +97,7 @@ router.post('/curso', async (req, res) => {
 
       const xp = xpActual + XP_CURSO_COMPLETADO;
       tx.set(ref, { xp, cursosPremiados: { [cursoId]: { xp: XP_CURSO_COMPLETADO, fecha: FieldValue.serverTimestamp() } } }, { merge: true });
-      return { nuevo: true, xp, regalo: XP_CURSO_COMPLETADO };
+      return { nuevo: true, xp, saldo: saldoDe({ ...d, xp }), regalo: XP_CURSO_COMPLETADO };
     });
 
     if (r.incompleto) return res.status(409).json({ error: 'curso-incompleto' });
@@ -101,6 +105,44 @@ router.post('/curso', async (req, res) => {
     return res.json(r);
   } catch (err) {
     console.error('❌ /api/regalo-bienvenida/curso error:', err.message);
+    res.status(500).json({ error: 'No se pudo aplicar el regalo' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────
+// Cofre por superar TODOS los retos de un nivel (Básico, Intermedio, Avanzado).
+// Una sola vez por nivel y persona. El servidor revisa progreso/{uid}.retosCompletados contra la lista de data/retos.js.
+// ───────────────────────────────────────────────────────────────
+// POST /api/regalo-bienvenida/nivel · { nivel } → { nuevo, xp, saldo, regalo } | 409 nivel-incompleto | 403 membresia-requerida
+router.post('/nivel', async (req, res) => {
+  try {
+    const decoded = await verificarToken(req);
+    if (!decoded) return res.status(401).json({ error: 'Falta iniciar sesión' });
+    const clave = String(req.body?.nivel || '');
+    const nivel = Object.prototype.hasOwnProperty.call(NIVELES, clave) ? NIVELES[clave] : null;
+    if (!nivel) return res.status(400).json({ error: 'nivel-desconocido' });
+
+    const m = await getMembership(decoded.uid);
+    if (!m.activa) return res.status(403).json({ error: 'membresia-requerida' });
+
+    const ref = db.collection('progreso').doc(decoded.uid);
+    const r = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const d = snap.exists ? snap.data() : {};
+      const xpActual = Number.isFinite(Number(d.xp)) ? Number(d.xp) : 0;
+      if (d.nivelesPremiados && d.nivelesPremiados[clave]) return { nuevo: false, xp: xpActual, saldo: saldoDe(d), regalo: nivel.xp };
+      const hechos = Array.isArray(d.retosCompletados) ? d.retosCompletados : [];
+      if (!nivel.retos.every((id) => hechos.includes(id))) return { incompleto: true };
+      const xp = xpActual + nivel.xp;
+      tx.set(ref, { xp, nivelesPremiados: { [clave]: { xp: nivel.xp, fecha: FieldValue.serverTimestamp() } } }, { merge: true });
+      return { nuevo: true, xp, saldo: saldoDe({ ...d, xp }), regalo: nivel.xp };
+    });
+
+    if (r.incompleto) return res.status(409).json({ error: 'nivel-incompleto' });
+    res.set('Cache-Control', 'no-store');
+    return res.json(r);
+  } catch (err) {
+    console.error('❌ /api/regalo-bienvenida/nivel error:', err.message);
     res.status(500).json({ error: 'No se pudo aplicar el regalo' });
   }
 });
