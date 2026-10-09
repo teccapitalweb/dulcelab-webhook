@@ -50,7 +50,7 @@ async function obtenerVideoMuestra() {
   for (const doc of snap.docs) {
     const curso = doc.data() || {};
     if (curso.marcarProximamente === true) continue;
-    const primera = Array.isArray(curso.sesiones) ? curso.sesiones[0] : null;
+    const primera = Array.isArray(curso.sesiones) && curso.sesiones.length > 1 ? curso.sesiones[0] : null; // la última clase nunca es muestra
     if (!primera && !(curso.clases || []).length) continue;
 
     if (primera?.videoId && videosPermitidos.has(primera.videoId)) {
@@ -65,7 +65,7 @@ async function obtenerVideoMuestra() {
       if (actual > score) { score = actual; mejor = item; }
     }
     if (mejor && score >= 0.52) {
-      videoId = mejor.sesiones?.[0]?.videoId || null;
+      videoId = (mejor.sesiones || []).length > 1 ? (mejor.sesiones[0]?.videoId || null) : null;
     }
     break;
   }
@@ -84,6 +84,50 @@ async function verificarUsuario(req) {
   }
 }
 
+// ── Prueba gratuita ──
+// Cada persona sin membresía elige UN curso (se guarda en progreso/{uid}.cursoPrueba y ya no cambia).
+// De ese curso puede ver todas las clases MENOS la última, sin importar cuántas tenga. Esto se valida aquí,
+// no en el navegador, para que la última clase no se pueda abrir sin membresía.
+async function videoEsDePrueba(uid, videoId) {
+  const prog = await db.collection('progreso').doc(uid).get();
+  const cursoId = prog.exists ? prog.data().cursoPrueba : null;
+  if (!cursoId) return false;
+  const doc = await db.collection('cursos').doc(String(cursoId)).get();
+  if (!doc.exists) return false;
+  const ses = Array.isArray(doc.data().sesiones) ? doc.data().sesiones : [];
+  const i = ses.findIndex(x => x && (x.videoId === videoId || x.url === videoId));
+  return i >= 0 && i < ses.length - 1;
+}
+
+// POST /api/bunny/curso-prueba · { cursoId } → { cursoId }. La primera elección gana; las siguientes devuelven la guardada.
+router.post('/curso-prueba', async (req, res) => {
+  try {
+    const usuario = await verificarUsuario(req);
+    if (!usuario) return res.status(401).json({ error: 'Falta iniciar sesión' });
+    const pedido = String(req.body?.cursoId || '').slice(0, 160);
+    const ref = db.collection('progreso').doc(usuario.uid);
+    const r = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const d = snap.exists ? snap.data() : {};
+      if (d.cursoPrueba) return { cursoId: d.cursoPrueba };
+      if (!pedido) return { cursoId: null };
+      const curso = await tx.get(db.collection('cursos').doc(pedido));
+      const c = curso.exists ? curso.data() : null;
+      if (!c || c.marcarProximamente === true || c.pruebaGratis === false || !(Array.isArray(c.sesiones) && c.sesiones.length)) {
+        return { error: 'curso-no-disponible' };
+      }
+      tx.set(ref, { cursoPrueba: pedido }, { merge: true });
+      return { cursoId: pedido };
+    });
+    if (r.error) return res.status(400).json({ error: r.error });
+    res.set('Cache-Control', 'no-store');
+    return res.json(r);
+  } catch (error) {
+    console.error('[Bunny curso-prueba]', error);
+    return res.status(500).json({ error: 'No se pudo guardar el curso de prueba' });
+  }
+});
+
 router.post('/embed-token', async (req, res) => {
   try {
     if (!env.bunnyTokenAuthKey) {
@@ -95,9 +139,10 @@ router.post('/embed-token', async (req, res) => {
       return res.status(404).json({ error: 'Video no encontrado en el catálogo de DulceLab Food' });
     }
 
-    const muestraId = await obtenerVideoMuestra();
-    const esMuestra = videoId === muestraId;
     const usuario = await verificarUsuario(req);
+    // La muestra abierta (primera clase del primer curso) es solo para visitantes sin cuenta.
+    const muestraId = usuario ? null : await obtenerVideoMuestra();
+    const esMuestra = videoId === muestraId;
     const esAdmin = Boolean(usuario && (
       usuario.admin === true || correosAdmin.has(String(usuario.email || '').toLowerCase())
     ));
@@ -107,7 +152,10 @@ router.post('/embed-token', async (req, res) => {
       tieneAcceso = membresia.activa === true || membresia.activo === true;
     }
 
-    if (!esMuestra && !tieneAcceso) {
+    let esPrueba = false;
+    if (usuario && !tieneAcceso) esPrueba = await videoEsDePrueba(usuario.uid, videoId);
+
+    if (!esMuestra && !tieneAcceso && !esPrueba) {
       return res.status(403).json({ error: 'Membresía requerida' });
     }
 
@@ -118,7 +166,7 @@ router.post('/embed-token', async (req, res) => {
     const embedUrl = `https://iframe.mediadelivery.net/embed/${env.bunnyStreamLibraryId}/${videoId}?token=${token}&expires=${expires}`;
 
     res.set('Cache-Control', 'no-store');
-    return res.json({ embedUrl, expires, esMuestra });
+    return res.json({ embedUrl, expires, esMuestra: esMuestra || esPrueba });
   } catch (error) {
     console.error('[Bunny embed-token]', error);
     return res.status(500).json({ error: 'No se pudo autorizar el reproductor' });

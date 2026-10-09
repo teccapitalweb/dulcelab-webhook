@@ -93,7 +93,8 @@ service cloud.firestore {
         && request.resource.data.get('desbloqueados', {}) == resource.data.get('desbloqueados', {})
         && request.resource.data.get('cursosPremiados', {}) == resource.data.get('cursosPremiados', {})
         && request.resource.data.get('nivelesPremiados', {}) == resource.data.get('nivelesPremiados', {})
-        && request.resource.data.get('regaloBienvenida', null) == resource.data.get('regaloBienvenida', null);
+        && request.resource.data.get('regaloBienvenida', null) == resource.data.get('regaloBienvenida', null)
+        && request.resource.data.get('cursoPrueba', null) == resource.data.get('cursoPrueba', null);
     }
 
     // Certificados: cada quien lee los suyos, cualquiera puede verificar
