@@ -62,7 +62,7 @@ router.post('/', async (req, res) => {
 // El servidor comprueba que de verdad terminó todas las clases del curso (progreso/{uid}.clases)
 // y que tiene membresía activa; luego suma los XP en una transacción.
 // ───────────────────────────────────────────────────────────────
-export const XP_CURSO_COMPLETADO = 300;
+export const XP_CURSO_COMPLETADO = 15;
 
 // POST /api/regalo-bienvenida/curso · { cursoId } → { nuevo, xp, regalo } | 409 curso-incompleto | 403 membresia-requerida
 router.post('/curso', async (req, res) => {
