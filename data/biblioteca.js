@@ -7,8 +7,9 @@
 // cualquiera: solo lo entrega routes/biblioteca.js a miembros con membresía y XP
 // suficientes. El catálogo (títulos, descripción, XP) sí es público.
 //
-// Los XP salen de los retos del panel. Los retos suman en total unos 1,585 XP
-// (más 150 de regalo de bienvenida), por eso el último premio pide 1,550.
+// Los XP salen de los retos del panel (unos 1,580 en total), el regalo de bienvenida (150) y
+// el regalo por terminar cada curso (300 por curso). Sin terminar un curso se llega a ~1,730 XP,
+// así que lo más caro (1,800 a 2,000) exige completar al menos un curso. Nada cuesta menos de 500.
 // ═══════════════════════════════════════════════════════════════════
 
 const NOTA_GUIA = 'Guía elaborada por DulceLab Food con criterios generales de la industria. No sustituye la normativa vigente de tu país ni la capacitación presencial.';
@@ -16,7 +17,7 @@ const NOTA_GUIA = 'Guía elaborada por DulceLab Food con criterios generales de 
 export const GUIAS = [
   // ───────────────────────── 1 · Pastelería ─────────────────────────
   {
-    id: 'g-pasteleria', xp: 250, tema: 'Pastelería', minutos: 12,
+    id: 'g-pasteleria', xp: 600, tema: 'Pastelería', minutos: 12,
     titulo: 'Pastelería moderna: ciencia y emplatado',
     resumen: 'Qué hace cada ingrediente, cómo mezclar sin arruinar la miga y cómo presentar un postre que se vea (y se venda) mejor.',
     fuente: { titulo: 'Modern Pastry and Plated Dessert Techniques', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/modernpastryandplateddesserts' },
@@ -58,7 +59,7 @@ export const GUIAS = [
 
   // ───────────────────────── 2 · Panadería ─────────────────────────
   {
-    id: 'g-panaderia', xp: 550, tema: 'Panadería', minutos: 12,
+    id: 'g-panaderia', xp: 900, tema: 'Panadería', minutos: 12,
     titulo: 'Ingredientes del panadero: harina, agua, sal y fermento',
     resumen: 'Cómo elegir la harina, calcular la hidratación y usar porcentajes del panadero para escalar cualquier receta.',
     fuente: { titulo: 'Understanding Ingredients for the Canadian Baker', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/ingredients' },
@@ -88,7 +89,7 @@ export const GUIAS = [
 
   // ───────────────────────── 3 · Inocuidad ─────────────────────────
   {
-    id: 'g-inocuidad', xp: 850, tema: 'Inocuidad', minutos: 14,
+    id: 'g-inocuidad', xp: 1200, tema: 'Inocuidad', minutos: 14,
     titulo: 'Inocuidad en la cocina: higiene, temperaturas y orden',
     resumen: 'Lo esencial para que lo que sirves no enferme a nadie: peligros, temperaturas clave, contaminación cruzada y alérgenos.',
     fuente: { titulo: 'Food Safety, Sanitation, and Personal Hygiene', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/foodsafety' },
@@ -115,7 +116,7 @@ export const GUIAS = [
 
   // ───────────────────────── 4 · Carnes ─────────────────────────
   {
-    id: 'g-carnes', xp: 1150, tema: 'Cocina', minutos: 12,
+    id: 'g-carnes', xp: 1500, tema: 'Cocina', minutos: 12,
     titulo: 'Cortes de carne: qué son, cómo cocinarlos y cómo aprovecharlos',
     resumen: 'Entiende por qué unos cortes son suaves y otros duros, qué método usar con cada uno y cómo calcular el rendimiento real.',
     fuente: { titulo: 'Meat Cutting and Processing for Food Service', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/meatcutting' },
@@ -137,7 +138,7 @@ export const GUIAS = [
 
   // ───────────────────────── 5 · Gestión ─────────────────────────
   {
-    id: 'g-gestion', xp: 1450, tema: 'Producción', minutos: 14,
+    id: 'g-gestion', xp: 1800, tema: 'Producción', minutos: 14,
     titulo: 'Gestión de cocina y costos: de la receta al precio de venta',
     resumen: 'Ficha técnica, costo por porción, merma, precio de venta, inventario y punto de equilibrio, con ejemplos que puedes copiar.',
     fuente: { titulo: 'Basic Kitchen and Food Service Management / Introduction to Food Production and Service', autor: 'BC Cook Articulation Committee (BCcampus) / Beth Egan (Penn State)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/basickitchenandfoodservicemanagement/' },
@@ -166,7 +167,7 @@ const NOTA_RECETA = 'Receta de DulceLab Food. Los tiempos y las cantidades son u
 
 export const RECETAS = [
   {
-    id: 'r-salsas', xp: 100, categoria: 'Cocina', tiempo: 25, porciones: 8, dificultad: 'Fácil',
+    id: 'r-salsas', xp: 500, categoria: 'Cocina', tiempo: 25, porciones: 8, dificultad: 'Fácil',
     titulo: 'Salsa verde cocida y salsa roja asada',
     resumen: 'Dos salsas de mesa básicas que se hacen en menos de media hora.',
     grupos: [
@@ -184,7 +185,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-galletas', xp: 200, categoria: 'Repostería', tiempo: 60, porciones: 30, dificultad: 'Fácil',
+    id: 'r-galletas', xp: 700, categoria: 'Repostería', tiempo: 60, porciones: 30, dificultad: 'Fácil',
     titulo: 'Galletas de mantequilla',
     resumen: 'Galletas de masa corta que se cortan con molde y conservan su forma.',
     grupos: [{ g: 'Ingredientes', items: ['225 g de mantequilla sin sal, blanda', '100 g de azúcar glass', '1 yema', '1 cucharadita de vainilla', '300 g de harina de trigo', '¼ de cucharadita de sal'] }],
@@ -201,7 +202,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-arroz', xp: 300, categoria: 'Cocina', tiempo: 45, porciones: 6, dificultad: 'Fácil',
+    id: 'r-arroz', xp: 800, categoria: 'Cocina', tiempo: 45, porciones: 6, dificultad: 'Fácil',
     titulo: 'Arroz rojo',
     resumen: 'Arroz suelto, color intenso y sabor a jitomate, con la proporción 1 a 2.',
     grupos: [{ g: 'Ingredientes', items: ['1½ tazas de arroz de grano largo (unos 300 g)', '2 jitomates (unos 250 g)', '¼ de cebolla', '1 diente de ajo', '3 tazas de líquido en total (caldo de pollo y/o agua, incluido el licuado)', '3 cucharadas de aceite', 'Sal al gusto', '½ taza de chícharos y zanahoria en cubos (opcional)'] }],
@@ -217,7 +218,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-flan', xp: 400, categoria: 'Repostería', tiempo: 90, porciones: 10, dificultad: 'Media',
+    id: 'r-flan', xp: 1000, categoria: 'Repostería', tiempo: 90, porciones: 10, dificultad: 'Media',
     titulo: 'Flan napolitano',
     resumen: 'Flan cremoso con caramelo, hecho a baño maría.',
     grupos: [
@@ -236,7 +237,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-brownies', xp: 500, categoria: 'Repostería', tiempo: 55, porciones: 16, dificultad: 'Fácil',
+    id: 'r-brownies', xp: 1100, categoria: 'Repostería', tiempo: 55, porciones: 16, dificultad: 'Fácil',
     titulo: 'Brownies de chocolate',
     resumen: 'Brownies densos y húmedos, con costra delgada arriba.',
     grupos: [{ g: 'Ingredientes', items: ['170 g de mantequilla', '200 g de chocolate semiamargo picado', '200 g de azúcar', '3 huevos', '1 cucharadita de vainilla', '100 g de harina', '30 g de cacao en polvo', '¼ de cucharadita de sal', '100 g de nueces (opcional)'] }],
@@ -253,7 +254,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-pay-limon', xp: 650, categoria: 'Repostería', tiempo: 40, porciones: 10, dificultad: 'Fácil',
+    id: 'r-pay-limon', xp: 1300, categoria: 'Repostería', tiempo: 40, porciones: 10, dificultad: 'Fácil',
     titulo: 'Pay de limón sin horno',
     resumen: 'Base de galleta y relleno cremoso de limón que cuaja en el refrigerador.',
     grupos: [
@@ -272,7 +273,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-pan-caja', xp: 800, categoria: 'Panadería', tiempo: 210, porciones: 14, dificultad: 'Media',
+    id: 'r-pan-caja', xp: 1400, categoria: 'Panadería', tiempo: 210, porciones: 14, dificultad: 'Media',
     titulo: 'Pan de caja casero',
     resumen: 'Pan de molde de miga suave, ideal para sándwiches y tostadas.',
     grupos: [{ g: 'Masa', items: ['500 g de harina de fuerza', '320 g de leche tibia', '40 g de mantequilla blanda', '30 g de azúcar', '10 g de sal', '7 g de levadura seca instantánea'] }],
@@ -289,7 +290,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-tres-leches', xp: 950, categoria: 'Repostería', tiempo: 360, porciones: 15, dificultad: 'Media',
+    id: 'r-tres-leches', xp: 1600, categoria: 'Repostería', tiempo: 360, porciones: 15, dificultad: 'Media',
     titulo: 'Pastel tres leches',
     resumen: 'Bizcocho esponjoso bañado en tres leches y cubierto con crema batida.',
     grupos: [
@@ -312,7 +313,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-conchas', xp: 1100, categoria: 'Panadería', tiempo: 240, porciones: 12, dificultad: 'Media',
+    id: 'r-conchas', xp: 1700, categoria: 'Panadería', tiempo: 240, porciones: 12, dificultad: 'Media',
     titulo: 'Conchas',
     resumen: 'Pan dulce mexicano de miga suave con cubierta de azúcar.',
     grupos: [
@@ -333,7 +334,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-pozole', xp: 1250, categoria: 'Cocina', tiempo: 210, porciones: 10, dificultad: 'Media',
+    id: 'r-pozole', xp: 1850, categoria: 'Cocina', tiempo: 210, porciones: 10, dificultad: 'Media',
     titulo: 'Pozole rojo',
     resumen: 'Caldo de chile guajillo con carne de cerdo y maíz cacahuazintle.',
     grupos: [
@@ -354,7 +355,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-cheesecake', xp: 1400, categoria: 'Repostería', tiempo: 480, porciones: 12, dificultad: 'Avanzada',
+    id: 'r-cheesecake', xp: 1925, categoria: 'Repostería', tiempo: 480, porciones: 12, dificultad: 'Avanzada',
     titulo: 'Cheesecake horneado',
     resumen: 'Cheesecake cremoso estilo clásico, a baño maría y sin grietas.',
     grupos: [
@@ -376,7 +377,7 @@ export const RECETAS = [
     nota: NOTA_RECETA
   },
   {
-    id: 'r-masa-madre', xp: 1550, categoria: 'Panadería', tiempo: 10080, porciones: 0, dificultad: 'Avanzada',
+    id: 'r-masa-madre', xp: 2000, categoria: 'Panadería', tiempo: 10080, porciones: 0, dificultad: 'Avanzada',
     titulo: 'Cultivo de masa madre en 7 días',
     resumen: 'Cómo iniciar y alimentar tu propio fermento natural para hacer pan.',
     grupos: [{ g: 'Materiales', items: ['Harina integral (para el inicio)', 'Harina de fuerza (para alimentar)', 'Agua a unos 25 a 30 °C', 'Un frasco de vidrio limpio con tapa floja', 'Báscula'] }],

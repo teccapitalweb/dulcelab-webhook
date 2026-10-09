@@ -10,6 +10,7 @@
 import express from 'express';
 import admin from 'firebase-admin';
 import { db, FieldValue } from '../config/firebase.js';
+import { getMembership } from '../services/firestore.js';
 
 const router = express.Router();
 
@@ -52,6 +53,54 @@ router.post('/', async (req, res) => {
     return res.json(resultado);
   } catch (err) {
     console.error('❌ /api/regalo-bienvenida error:', err.message);
+    res.status(500).json({ error: 'No se pudo aplicar el regalo' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────
+// Regalo por terminar un curso: XP_CURSO_COMPLETADO una sola vez por curso y por persona.
+// El servidor comprueba que de verdad terminó todas las clases del curso (progreso/{uid}.clases)
+// y que tiene membresía activa; luego suma los XP en una transacción.
+// ───────────────────────────────────────────────────────────────
+export const XP_CURSO_COMPLETADO = 300;
+
+// POST /api/regalo-bienvenida/curso · { cursoId } → { nuevo, xp, regalo } | 409 curso-incompleto | 403 membresia-requerida
+router.post('/curso', async (req, res) => {
+  try {
+    const decoded = await verificarToken(req);
+    if (!decoded) return res.status(401).json({ error: 'Falta iniciar sesión' });
+    const cursoId = String(req.body?.cursoId || '').slice(0, 160);
+    if (!cursoId) return res.status(400).json({ error: 'Falta cursoId' });
+
+    const m = await getMembership(decoded.uid);
+    if (!m.activa) return res.status(403).json({ error: 'membresia-requerida' });
+
+    const cursoDoc = await db.collection('cursos').doc(cursoId).get();
+    if (!cursoDoc.exists) return res.status(404).json({ error: 'curso-no-encontrado' });
+    const sesiones = Array.isArray(cursoDoc.data().sesiones) ? cursoDoc.data().sesiones : [];
+    if (!sesiones.length) return res.status(400).json({ error: 'curso-sin-clases' });
+
+    const ref = db.collection('progreso').doc(decoded.uid);
+    const r = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const d = snap.exists ? snap.data() : {};
+      const xpActual = Number.isFinite(Number(d.xp)) ? Number(d.xp) : 0;
+      if (d.cursosPremiados && d.cursosPremiados[cursoId]) return { nuevo: false, xp: xpActual, regalo: XP_CURSO_COMPLETADO };
+
+      const vistas = (((d.clases || {})[cursoId] || {}).clasesVistas) || [];
+      const completo = sesiones.every((s, i) => vistas.includes((s && s.numero) || (i + 1)));
+      if (!completo) return { incompleto: true };
+
+      const xp = xpActual + XP_CURSO_COMPLETADO;
+      tx.set(ref, { xp, cursosPremiados: { [cursoId]: { xp: XP_CURSO_COMPLETADO, fecha: FieldValue.serverTimestamp() } } }, { merge: true });
+      return { nuevo: true, xp, regalo: XP_CURSO_COMPLETADO };
+    });
+
+    if (r.incompleto) return res.status(409).json({ error: 'curso-incompleto' });
+    res.set('Cache-Control', 'no-store');
+    return res.json(r);
+  } catch (err) {
+    console.error('❌ /api/regalo-bienvenida/curso error:', err.message);
     res.status(500).json({ error: 'No se pudo aplicar el regalo' });
   }
 });
