@@ -110,6 +110,16 @@ export async function enviarPrueba({ to }) {
   return enviarCorreo({ to, subject: '✔ Prueba de correo · DulceLab Food', html });
 }
 
+// Invitación de reactivación: el botón no activa el regalo por sí solo; abre
+// la cuenta autenticada para que la persona lo confirme conscientemente.
+export async function enviarInvitacionVip({ to, nombre, venceAt }) {
+  const saludo = nombre ? `Hola ${nombre}` : 'Hola';
+  const vence = venceAt ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Mexico_City' }).format(new Date(vence)) : 'en 48 horas';
+  const url = `${PANEL_URL}/vip-panel.html?activar-vip-regalo=1`;
+  const html = `<!doctype html><html lang="es"><body style="margin:0;background:#fbeff2;font-family:Arial,sans-serif;color:#3b2420"><table role="presentation" width="100%" style="padding:32px 14px"><tr><td align="center"><table role="presentation" width="100%" style="max-width:540px;background:#fff;border-radius:20px;overflow:hidden"><tr><td style="padding:32px;background:#6b1526;color:#fff;text-align:center"><strong style="font-size:26px">DulceLab Food</strong><div style="margin-top:7px;font-size:12px;letter-spacing:1px">UN REGALO PARA CONTINUAR APRENDIENDO</div></td></tr><tr><td style="padding:34px 32px"><h1 style="font-size:23px;margin:0 0 14px">${saludo}, tus 3 días VIP te esperan</h1><p style="line-height:1.65;color:#6b5147">Terminaste la parte gratuita de tu curso. Activa tu regalo y disfruta <strong>3 días de acceso VIP</strong> a cursos, clases, materiales, herramientas y retos.</p><p style="line-height:1.65;color:#6b5147">El regalo vence el <strong>${vence}</strong>. Los certificados oficiales requieren una membresía pagada.</p><p style="margin:26px 0"><a href="${url}" style="display:inline-block;padding:14px 22px;border-radius:12px;background:#6b1526;color:#fff;text-decoration:none;font-weight:bold">Activar mis 3 días VIP</a></p></td></tr><tr><td style="padding:20px 32px;text-align:center;border-top:1px solid #f0d9de;color:#8a746c;font-size:12px">DulceLab Food · Acceso sujeto a activación única.</td></tr></table></td></tr></table></body></html>`;
+  return enviarCorreo({ to, subject: '🎁 Tienes 3 días VIP de regalo en DulceLab Food', html });
+}
+
 // ───────────────────────────────────────────────────────────────
 // Plantilla + envío: certificado con el PDF adjunto
 // ───────────────────────────────────────────────────────────────

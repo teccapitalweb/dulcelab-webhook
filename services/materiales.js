@@ -32,11 +32,15 @@ export function inferirTipo(url) {
 
 async function tieneMembresiaActiva(uid) {
   const doc = await db.collection('miembros').doc(uid).get();
-  if (!doc.exists) return { activa: false, fechaAlta: null };
-  const m = doc.data();
+  const m = doc.exists ? doc.data() : {};
   let activa = !!m.activa;
   const expira = m.expiraEn?.toDate?.();
   if (activa && expira && expira.getTime() < Date.now()) activa = false;
+  if (!activa) {
+    const progreso = await db.collection('progreso').doc(uid).get();
+    const hasta = progreso.exists ? progreso.data()?.ofertaVip?.vipHasta?.toDate?.() : null;
+    activa = !!(hasta && hasta.getTime() > Date.now());
+  }
   return { activa, fechaAlta: m.fechaAlta?.toDate?.() || null };
 }
 

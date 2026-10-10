@@ -76,9 +76,7 @@ export async function updateMiembroBySubscription(subscriptionId, changes) {
  */
 export async function getMembership(uid) {
   const doc = await db.collection('miembros').doc(uid).get();
-  if (!doc.exists) return { activa: false, activo: false, motivo: 'sin-membresia' };
-
-  const data = doc.data();
+  const data = doc.exists ? doc.data() : {};
   let activa = !!data.activa;
 
   // Vigencia para regalos / activación manual (tienen expiraEn pero no suscripción Stripe)
@@ -87,7 +85,7 @@ export async function getMembership(uid) {
     activa = false;
   }
 
-  return {
+  if (activa) return {
     activa,
     activo: activa,                       // alias por compat
     plan: data.plan || null,
@@ -96,6 +94,28 @@ export async function getMembership(uid) {
     cancelaAlFinal: !!data.cancelaAlFinal,
     proximaRenovacion: data.fechaProximaRenovacion?.toDate?.()?.toISOString() || null,
     expiraEn: expira ? expira.toISOString() : null
+  };
+
+  // Regalo de reactivación: 3 días de acceso total, sin certificados. Vive
+  // separado de /miembros para nunca confundirse con una suscripción pagada.
+  const progreso = await db.collection('progreso').doc(uid).get();
+  const oferta = progreso.exists ? (progreso.data().ofertaVip || {}) : {};
+  const hasta = oferta.vipHasta?.toDate?.();
+  const regaloActivo = hasta && hasta.getTime() > Date.now();
+  return {
+    activa: !!regaloActivo,
+    activo: !!regaloActivo,
+    plan: regaloActivo ? 'regalo-3-dias' : null,
+    esRegalo: !!regaloActivo,
+    certificadoBloqueado: !!regaloActivo,
+    proximaRenovacion: null,
+    expiraEn: hasta ? hasta.toISOString() : null,
+    ofertaVip: {
+      estado: oferta.estado || null,
+      venceAt: oferta.venceAt?.toDate?.()?.toISOString() || null,
+      vipHasta: hasta ? hasta.toISOString() : null
+    },
+    motivo: regaloActivo ? 'regalo-activo' : 'sin-membresia'
   };
 }
 

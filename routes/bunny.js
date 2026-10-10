@@ -5,7 +5,7 @@ import express from 'express';
 import admin from 'firebase-admin';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { db, FieldValue } from '../config/firebase.js';
+import { db, FieldValue, Timestamp } from '../config/firebase.js';
 import { env } from '../config/env.js';
 import { getMembership } from '../services/firestore.js';
 
@@ -237,6 +237,64 @@ router.get('/pruebas-gratis', async (req, res) => {
   } catch (error) {
     console.error('[Bunny pruebas-gratis]', error);
     return res.status(500).json({ error: 'No se pudo obtener el resumen de pruebas gratuitas' });
+  }
+});
+
+// Programa la invitación después de que la persona agota su parte gratuita.
+// No activa nada aquí: el correo sale 24 h después y el usuario debe aceptar.
+router.post('/oferta-vip', async (req, res) => {
+  try {
+    const usuario = await verificarUsuario(req);
+    if (!usuario) return res.status(401).json({ error: 'Falta iniciar sesión' });
+    const cursoId = String(req.body?.cursoId || '').slice(0, 160);
+    const ref = db.collection('progreso').doc(usuario.uid);
+    const ahora = new Date();
+    const resultado = await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const progreso = snap.exists ? snap.data() : {};
+      if (!cursoId || progreso.cursoPrueba !== cursoId) return { error: 'curso-prueba-invalido' };
+      const oferta = progreso.ofertaVip || {};
+      if (oferta.estado) return { estado: oferta.estado, yaExiste: true };
+      tx.set(ref, { ofertaVip: {
+        estado: 'programada', cursoId,
+        creadaAt: FieldValue.serverTimestamp(),
+        enviarDespuesDe: Timestamp.fromDate(new Date(ahora.getTime() + 24 * 60 * 60 * 1000)),
+        venceAt: Timestamp.fromDate(new Date(ahora.getTime() + 72 * 60 * 60 * 1000))
+      } }, { merge: true });
+      return { estado: 'programada' };
+    });
+    if (resultado.error) return res.status(400).json(resultado);
+    return res.json(resultado);
+  } catch (error) {
+    console.error('[Bunny oferta-vip]', error);
+    return res.status(500).json({ error: 'No se pudo programar el regalo VIP' });
+  }
+});
+
+// El enlace del correo solo abre el panel; este POST es la aceptación real.
+router.post('/activar-oferta-vip', async (req, res) => {
+  try {
+    const usuario = await verificarUsuario(req);
+    if (!usuario) return res.status(401).json({ error: 'Falta iniciar sesión' });
+    const miembro = await getMembership(usuario.uid);
+    if (miembro.activa && !miembro.certificadoBloqueado) return res.status(409).json({ error: 'Tu membresía ya está activa' });
+    const ref = db.collection('progreso').doc(usuario.uid);
+    const ahora = new Date();
+    const resultado = await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const oferta = snap.exists ? (snap.data().ofertaVip || {}) : {};
+      const vence = oferta.venceAt?.toDate?.();
+      if (oferta.estado === 'activada' && oferta.vipHasta?.toDate?.()?.getTime() > ahora.getTime()) return { ok: true, hasta: oferta.vipHasta.toDate().toISOString() };
+      if (oferta.estado !== 'enviada' || !vence || vence.getTime() <= ahora.getTime()) return { error: 'oferta-no-disponible' };
+      const hasta = new Date(ahora.getTime() + 3 * 24 * 60 * 60 * 1000);
+      tx.set(ref, { ofertaVip: { ...oferta, estado: 'activada', activadaAt: FieldValue.serverTimestamp(), vipHasta: Timestamp.fromDate(hasta) } }, { merge: true });
+      return { ok: true, hasta: hasta.toISOString() };
+    });
+    if (resultado.error) return res.status(400).json(resultado);
+    return res.json(resultado);
+  } catch (error) {
+    console.error('[Bunny activar-oferta-vip]', error);
+    return res.status(500).json({ error: 'No se pudo activar el regalo VIP' });
   }
 });
 
