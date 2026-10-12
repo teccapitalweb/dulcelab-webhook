@@ -49,6 +49,16 @@ function nombreBase(decoded, pedido) {
     || 'Miembro DulceLab Food';
 }
 
+function perfilInicial(body = {}) {
+  const sector = texto(body.sector, 40);
+  return {
+    puesto: texto(body.puesto, 60),
+    empresa: texto(body.empresa, 60),
+    sector: SECTORES.has(sector) ? sector : '',
+    bio: texto(body.bio, 160)
+  };
+}
+
 // Crea la tarjeta básica desde el registro. Mientras no haya membresía queda
 // oculta; al activarse la membresía se publica automáticamente. Nunca incluye
 // correo ni WhatsApp, por lo que no revela datos de contacto sin autorización.
@@ -59,11 +69,12 @@ router.post('/asegurar', usuario, async (req, res) => {
     const snap = await ref.get();
     if (!snap.exists) {
       const nombre = nombreBase(req.usuario, req.body?.nombre);
+      const perfil = perfilInicial(req.body);
       await ref.set({
         uid: req.usuario.uid,
         nombre,
-        puesto: 'Miembro DulceLab Food',
-        empresa: '', sector: '', bio: '',
+        puesto: perfil.puesto || 'Miembro DulceLab Food',
+        empresa: perfil.empresa, sector: perfil.sector, bio: perfil.bio,
         whatsapp: '', email: '', linkedin: '', web: '', foto: null,
         color: colorPara(req.usuario.uid),
         visible: esVip,
@@ -76,10 +87,21 @@ router.post('/asegurar', usuario, async (req, res) => {
     }
     const actual = snap.data() || {};
     const cambios = {};
-    if (!actual.nombre) cambios.nombre = nombreBase(req.usuario, req.body?.nombre);
+    const nombre = texto(req.body?.nombre, 50);
+    const perfil = perfilInicial(req.body);
+    const esAutomatica = actual.autoCreada === true && actual.perfilEditado !== true;
+    // Durante el registro se completa una ficha privada. Mientras siga siendo
+    // automática, esos datos se pueden enriquecer sin volverla pública.
+    if (nombre && (esAutomatica || !actual.nombre)) cambios.nombre = nombre;
+    if (esAutomatica) {
+      if (perfil.puesto) cambios.puesto = perfil.puesto;
+      if (perfil.empresa) cambios.empresa = perfil.empresa;
+      if (perfil.sector) cambios.sector = perfil.sector;
+      if (perfil.bio) cambios.bio = perfil.bio;
+    }
     // Solo las fichas automáticas cambian de oculta a visible al pagar. Una
     // persona que editó su ficha conserva la visibilidad que eligió.
-    if (esVip && actual.autoCreada === true && actual.perfilEditado !== true && actual.visible === false) cambios.visible = true;
+    if (esVip && esAutomatica && actual.visible === false) cambios.visible = true;
     if (Object.keys(cambios).length) {
       cambios.updatedAt = FieldValue.serverTimestamp();
       await ref.set(cambios, { merge: true });
