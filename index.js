@@ -35,6 +35,7 @@ import certificadosRoutes from './routes/certificados.js';
 import materialesRoutes from './routes/materiales.js';
 import encuestaRoutes from './routes/encuesta.js';
 import metricasRoutes from './routes/metricas.js';
+import directorioRoutes from './routes/directorio.js';
 
 // Cron
 import { syncNewsData } from './services/news.js';
@@ -74,6 +75,7 @@ app.use('/api/bunny', bunnyRoutes);
 app.use('/api/materiales', materialesRoutes);
 app.use('/api/encuesta', encuestaRoutes);
 app.use('/api/metricas', metricasRoutes);
+app.use('/api/directorio', directorioRoutes);
 app.use('/api/regalo-bienvenida', regaloRoutes);
 app.use('/api/biblioteca', bibliotecaRoutes);
 app.use('/certificados', certificadosRoutes);
