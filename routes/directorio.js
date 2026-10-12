@@ -55,13 +55,15 @@ function perfilInicial(body = {}) {
     puesto: texto(body.puesto, 60),
     empresa: texto(body.empresa, 60),
     sector: SECTORES.has(sector) ? sector : '',
-    bio: texto(body.bio, 160)
+    bio: texto(body.bio, 160),
+    whatsapp: texto(body.whatsapp, 20),
+    email: texto(body.email, 80)
   };
 }
 
 // Crea la tarjeta básica desde el registro. Mientras no haya membresía queda
-// oculta; al activarse la membresía se publica automáticamente. Nunca incluye
-// correo ni WhatsApp, por lo que no revela datos de contacto sin autorización.
+// oculta; al activarse la membresía se publica automáticamente. El correo y
+// WhatsApp solo se guardan si la persona los escribe voluntariamente en el registro.
 router.post('/asegurar', usuario, async (req, res) => {
   try {
     const esVip = await puedeUsarDirectorio(req.usuario);
@@ -75,7 +77,7 @@ router.post('/asegurar', usuario, async (req, res) => {
         nombre,
         puesto: perfil.puesto || 'Miembro DulceLab Food',
         empresa: perfil.empresa, sector: perfil.sector, bio: perfil.bio,
-        whatsapp: '', email: '', linkedin: '', web: '', foto: null,
+        whatsapp: perfil.whatsapp, email: perfil.email, linkedin: '', web: '', foto: null,
         color: colorPara(req.usuario.uid),
         visible: esVip,
         autoCreada: true,
@@ -98,6 +100,8 @@ router.post('/asegurar', usuario, async (req, res) => {
       if (perfil.empresa) cambios.empresa = perfil.empresa;
       if (perfil.sector) cambios.sector = perfil.sector;
       if (perfil.bio) cambios.bio = perfil.bio;
+      if (perfil.whatsapp) cambios.whatsapp = perfil.whatsapp;
+      if (perfil.email) cambios.email = perfil.email;
     }
     // Solo las fichas automáticas cambian de oculta a visible al pagar. Una
     // persona que editó su ficha conserva la visibilidad que eligió.
