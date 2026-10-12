@@ -49,11 +49,12 @@ function nombreBase(decoded, pedido) {
     || 'Miembro DulceLab Food';
 }
 
-// Crea la tarjeta básica al activar/entrar como VIP. No incluye correo ni
-// WhatsApp, por lo que nunca publica datos de contacto sin que la persona los agregue.
+// Crea la tarjeta básica desde el registro. Mientras no haya membresía queda
+// oculta; al activarse la membresía se publica automáticamente. Nunca incluye
+// correo ni WhatsApp, por lo que no revela datos de contacto sin autorización.
 router.post('/asegurar', usuario, async (req, res) => {
   try {
-    if (!await puedeUsarDirectorio(req.usuario)) return res.status(403).json({ error: 'El Directorio VIP requiere membresía activa' });
+    const esVip = await puedeUsarDirectorio(req.usuario);
     const ref = db.collection('directorio').doc(req.usuario.uid);
     const snap = await ref.get();
     if (!snap.exists) {
@@ -65,17 +66,28 @@ router.post('/asegurar', usuario, async (req, res) => {
         empresa: '', sector: '', bio: '',
         whatsapp: '', email: '', linkedin: '', web: '', foto: null,
         color: colorPara(req.usuario.uid),
-        visible: true,
+        visible: esVip,
         autoCreada: true,
         perfilEditado: false,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp()
       });
-      return res.json({ ok: true, creada: true });
+      return res.json({ ok: true, creada: true, visible: esVip });
     }
     const actual = snap.data() || {};
-    if (!actual.nombre) await ref.set({ nombre: nombreBase(req.usuario, req.body?.nombre), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    return res.json({ ok: true, creada: false });
+    const cambios = {};
+    if (!actual.nombre) cambios.nombre = nombreBase(req.usuario, req.body?.nombre);
+    // Solo las fichas automáticas cambian de oculta a visible al pagar. Una
+    // persona que editó su ficha conserva la visibilidad que eligió.
+    if (esVip && actual.autoCreada === true && actual.perfilEditado !== true && actual.visible === false) cambios.visible = true;
+    if (Object.keys(cambios).length) {
+      cambios.updatedAt = FieldValue.serverTimestamp();
+      await ref.set(cambios, { merge: true });
+    }
+    const visible = Object.prototype.hasOwnProperty.call(cambios, 'visible')
+      ? cambios.visible
+      : actual.visible === true;
+    return res.json({ ok: true, creada: false, visible });
   } catch (error) {
     console.error('❌ /api/directorio/asegurar:', error.message);
     return res.status(500).json({ error: 'No se pudo preparar tu tarjeta profesional' });
