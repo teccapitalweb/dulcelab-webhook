@@ -180,17 +180,23 @@ router.get('/pruebas-gratis', async (req, res) => {
     const elegidas = progresoSnap.docs.map(doc => {
       const data = doc.data() || {};
       if (!data.cursoPrueba) return null;
-      const miembro = miembros.get(doc.id) || {};
-      const cuenta = cuentasAuth.get(doc.id) || {};
+      const miembro = miembros.get(doc.id);
+      const cuenta = cuentasAuth.get(doc.id);
+      // Algunos registros históricos de progreso sobreviven después de borrar
+      // una cuenta de Firebase o su perfil. No son miembros y no deben inflar
+      // el reporte con filas "Miembro / Sin correo".
+      if (!miembro && !cuenta) return null;
+      const perfil = miembro || {};
+      const auth = cuenta || {};
       const curso = cursos.get(String(data.cursoPrueba)) || {};
       const elegidaAt = data.cursoPruebaAt || data.updatedAt || data.createdAt || null;
       return {
         uid: doc.id,
         cursoId: String(data.cursoPrueba),
         curso: String(curso.titulo || 'Curso eliminado'),
-        nombre: String(miembro.nombre || miembro.displayName || cuenta.nombre || miembro.email || 'Miembro'),
-        email: String(miembro.email || cuenta.email || ''),
-        pagado: miembro.activa === true || miembro.activo === true,
+        nombre: String(perfil.nombre || perfil.displayName || auth.nombre || perfil.email || auth.email || 'Miembro'),
+        email: String(perfil.email || auth.email || ''),
+        pagado: perfil.activa === true || perfil.activo === true,
         fecha: fechaISO(elegidaAt),
         orden: (elegidaAt?.toDate?.() || new Date(0)).getTime()
       };
