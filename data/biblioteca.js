@@ -20,6 +20,7 @@ export const GUIAS = [
   {
     id: 'g-pasteleria', xp: 400, tema: 'Pastelería', minutos: 12,
     titulo: 'Pastelería moderna: ciencia y emplatado',
+    portada: 'https://images.unsplash.com/photo-1601113026115-8545759d159e?auto=format&fit=crop&w=900&q=82',
     resumen: 'Qué hace cada ingrediente, cómo mezclar sin arruinar la miga y cómo presentar un postre que se vea (y se venda) mejor.',
     fuente: { titulo: 'Modern Pastry and Plated Dessert Techniques', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/modernpastryandplateddesserts' },
     contenido: [
@@ -62,6 +63,7 @@ export const GUIAS = [
   {
     id: 'g-panaderia', xp: 440, tema: 'Panadería', minutos: 12,
     titulo: 'Ingredientes del panadero: harina, agua, sal y fermento',
+    portada: 'https://images.unsplash.com/photo-1670843837159-ddae2ec115d4?auto=format&fit=crop&w=900&q=82',
     resumen: 'Cómo elegir la harina, calcular la hidratación y usar porcentajes del panadero para escalar cualquier receta.',
     fuente: { titulo: 'Understanding Ingredients for the Canadian Baker', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/ingredients' },
     contenido: [
@@ -92,6 +94,7 @@ export const GUIAS = [
   {
     id: 'g-inocuidad', xp: 480, tema: 'Inocuidad', minutos: 14,
     titulo: 'Inocuidad en la cocina: higiene, temperaturas y orden',
+    portada: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=900&q=82',
     resumen: 'Lo esencial para que lo que sirves no enferme a nadie: peligros, temperaturas clave, contaminación cruzada y alérgenos.',
     fuente: { titulo: 'Food Safety, Sanitation, and Personal Hygiene', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/foodsafety' },
     contenido: [
@@ -119,6 +122,7 @@ export const GUIAS = [
   {
     id: 'g-carnes', xp: 520, tema: 'Cocina', minutos: 12,
     titulo: 'Cortes de carne: qué son, cómo cocinarlos y cómo aprovecharlos',
+    portada: 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?auto=format&fit=crop&w=900&q=82',
     resumen: 'Entiende por qué unos cortes son suaves y otros duros, qué método usar con cada uno y cómo calcular el rendimiento real.',
     fuente: { titulo: 'Meat Cutting and Processing for Food Service', autor: 'BC Cook Articulation Committee (BCcampus)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/meatcutting' },
     contenido: [
@@ -141,6 +145,7 @@ export const GUIAS = [
   {
     id: 'g-gestion', xp: 560, tema: 'Producción', minutos: 14,
     titulo: 'Gestión de cocina y costos: de la receta al precio de venta',
+    portada: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=82',
     resumen: 'Ficha técnica, costo por porción, merma, precio de venta, inventario y punto de equilibrio, con ejemplos que puedes copiar.',
     fuente: { titulo: 'Basic Kitchen and Food Service Management / Introduction to Food Production and Service', autor: 'BC Cook Articulation Committee (BCcampus) / Beth Egan (Penn State)', licencia: 'CC BY 4.0', url: 'https://opentextbc.ca/basickitchenandfoodservicemanagement/' },
     contenido: [
@@ -170,6 +175,7 @@ export const RECETAS = [
   {
     id: 'r-salsas', xp: 270, categoria: 'Cocina', tiempo: 25, porciones: 8, dificultad: 'Fácil',
     titulo: 'Salsa verde cocida y salsa roja asada',
+    portada: 'https://images.unsplash.com/photo-1581957515636-cd1c61273959?auto=format&fit=crop&w=900&q=82',
     resumen: 'Dos salsas de mesa básicas que se hacen en menos de media hora.',
     grupos: [
       { g: 'Salsa verde', items: ['500 g de tomate verde (tomatillo)', '2 a 3 chiles serranos', '¼ de cebolla', '1 diente de ajo', '½ taza de cilantro', 'Sal al gusto', '¼ de taza del agua de cocción'] },
@@ -188,6 +194,7 @@ export const RECETAS = [
   {
     id: 'r-galletas', xp: 290, categoria: 'Repostería', tiempo: 60, porciones: 30, dificultad: 'Fácil',
     titulo: 'Galletas de mantequilla',
+    portada: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=900&q=82',
     resumen: 'Galletas de masa corta que se cortan con molde y conservan su forma.',
     grupos: [{ g: 'Ingredientes', items: ['225 g de mantequilla sin sal, blanda', '100 g de azúcar glass', '1 yema', '1 cucharadita de vainilla', '300 g de harina de trigo', '¼ de cucharadita de sal'] }],
     pasos: [
@@ -205,6 +212,7 @@ export const RECETAS = [
   {
     id: 'r-arroz', xp: 310, categoria: 'Cocina', tiempo: 45, porciones: 6, dificultad: 'Fácil',
     titulo: 'Arroz rojo',
+    portada: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=82',
     resumen: 'Arroz suelto, color intenso y sabor a jitomate, con la proporción 1 a 2.',
     grupos: [{ g: 'Ingredientes', items: ['1½ tazas de arroz de grano largo (unos 300 g)', '2 jitomates (unos 250 g)', '¼ de cebolla', '1 diente de ajo', '3 tazas de líquido en total (caldo de pollo y/o agua, incluido el licuado)', '3 cucharadas de aceite', 'Sal al gusto', '½ taza de chícharos y zanahoria en cubos (opcional)'] }],
     pasos: [
@@ -221,6 +229,7 @@ export const RECETAS = [
   {
     id: 'r-flan', xp: 330, categoria: 'Repostería', tiempo: 90, porciones: 10, dificultad: 'Media',
     titulo: 'Flan napolitano',
+    portada: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=82',
     resumen: 'Flan cremoso con caramelo, hecho a baño maría.',
     grupos: [
       { g: 'Caramelo', items: ['150 g de azúcar'] },
@@ -240,6 +249,7 @@ export const RECETAS = [
   {
     id: 'r-brownies', xp: 350, categoria: 'Repostería', tiempo: 55, porciones: 16, dificultad: 'Fácil',
     titulo: 'Brownies de chocolate',
+    portada: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=900&q=82',
     resumen: 'Brownies densos y húmedos, con costra delgada arriba.',
     grupos: [{ g: 'Ingredientes', items: ['170 g de mantequilla', '200 g de chocolate semiamargo picado', '200 g de azúcar', '3 huevos', '1 cucharadita de vainilla', '100 g de harina', '30 g de cacao en polvo', '¼ de cucharadita de sal', '100 g de nueces (opcional)'] }],
     pasos: [
@@ -257,6 +267,7 @@ export const RECETAS = [
   {
     id: 'r-pay-limon', xp: 370, categoria: 'Repostería', tiempo: 40, porciones: 10, dificultad: 'Fácil',
     titulo: 'Pay de limón sin horno',
+    portada: 'https://images.unsplash.com/photo-1519915028121-7d3463d20b13?auto=format&fit=crop&w=900&q=82',
     resumen: 'Base de galleta y relleno cremoso de limón que cuaja en el refrigerador.',
     grupos: [
       { g: 'Base', items: ['200 g de galletas Marías molidas', '100 g de mantequilla derretida', '2 cucharadas de azúcar'] },
@@ -276,6 +287,7 @@ export const RECETAS = [
   {
     id: 'r-pan-caja', xp: 390, categoria: 'Panadería', tiempo: 210, porciones: 14, dificultad: 'Media',
     titulo: 'Pan de caja casero',
+    portada: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=82',
     resumen: 'Pan de molde de miga suave, ideal para sándwiches y tostadas.',
     grupos: [{ g: 'Masa', items: ['500 g de harina de fuerza', '320 g de leche tibia', '40 g de mantequilla blanda', '30 g de azúcar', '10 g de sal', '7 g de levadura seca instantánea'] }],
     pasos: [
@@ -293,6 +305,7 @@ export const RECETAS = [
   {
     id: 'r-tres-leches', xp: 410, categoria: 'Repostería', tiempo: 360, porciones: 15, dificultad: 'Media',
     titulo: 'Pastel tres leches',
+    portada: 'https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=900&q=82',
     resumen: 'Bizcocho esponjoso bañado en tres leches y cubierto con crema batida.',
     grupos: [
       { g: 'Bizcocho', items: ['5 huevos (claras y yemas separadas)', '200 g de azúcar, divididos en 2', '125 g de harina', '1½ cucharaditas de polvo para hornear', '80 ml de leche', '1 cucharadita de vainilla'] },
@@ -316,6 +329,7 @@ export const RECETAS = [
   {
     id: 'r-conchas', xp: 430, categoria: 'Panadería', tiempo: 240, porciones: 12, dificultad: 'Media',
     titulo: 'Conchas',
+    portada: 'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=900&q=82',
     resumen: 'Pan dulce mexicano de miga suave con cubierta de azúcar.',
     grupos: [
       { g: 'Masa', items: ['500 g de harina de fuerza', '100 g de azúcar', '8 g de sal', '10 g de levadura seca instantánea', '2 huevos', '180 ml de leche tibia', '100 g de mantequilla blanda', '1 cucharadita de vainilla'] },
@@ -337,6 +351,7 @@ export const RECETAS = [
   {
     id: 'r-pozole', xp: 450, categoria: 'Cocina', tiempo: 210, porciones: 10, dificultad: 'Media',
     titulo: 'Pozole rojo',
+    portada: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=82',
     resumen: 'Caldo de chile guajillo con carne de cerdo y maíz cacahuazintle.',
     grupos: [
       { g: 'Caldo', items: ['1 kg de carne de cerdo (espaldilla o pierna) en trozos grandes', '500 g de hueso de cerdo (espinazo)', '1 cebolla, dividida', '6 dientes de ajo, divididos', '2.5 litros de agua', 'Sal al gusto'] },
@@ -358,6 +373,7 @@ export const RECETAS = [
   {
     id: 'r-cheesecake', xp: 470, categoria: 'Repostería', tiempo: 480, porciones: 12, dificultad: 'Avanzada',
     titulo: 'Cheesecake horneado',
+    portada: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=900&q=82',
     resumen: 'Cheesecake cremoso estilo clásico, a baño maría y sin grietas.',
     grupos: [
       { g: 'Base', items: ['200 g de galletas Marías molidas', '90 g de mantequilla derretida', '2 cucharadas de azúcar'] },
@@ -380,6 +396,7 @@ export const RECETAS = [
   {
     id: 'r-masa-madre', xp: 490, categoria: 'Panadería', tiempo: 10080, porciones: 0, dificultad: 'Avanzada',
     titulo: 'Cultivo de masa madre en 7 días',
+    portada: 'https://images.unsplash.com/photo-1585478259715-876acc5be8eb?auto=format&fit=crop&w=900&q=82',
     resumen: 'Cómo iniciar y alimentar tu propio fermento natural para hacer pan.',
     grupos: [{ g: 'Materiales', items: ['Harina integral (para el inicio)', 'Harina de fuerza (para alimentar)', 'Agua a unos 25 a 30 °C', 'Un frasco de vidrio limpio con tapa floja', 'Báscula'] }],
     pasos: [
