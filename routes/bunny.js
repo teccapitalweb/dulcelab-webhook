@@ -246,6 +246,88 @@ router.get('/pruebas-gratis', async (req, res) => {
   }
 });
 
+// GET /api/bunny/ofertas-vip · tablero privado para seguir el embudo de los
+// 3 días VIP: programación, correo, aceptación, vencimiento y conversión.
+router.get('/ofertas-vip', async (req, res) => {
+  try {
+    if (!await verificarAdmin(req)) return res.status(403).json({ error: 'Solo un administrador puede ver las ofertas VIP' });
+    const [progresoSnap, miembrosSnap, cursosSnap, cuentasAuth] = await Promise.all([
+      db.collection('progreso').get(),
+      db.collection('miembros').get(),
+      db.collection('cursos').get(),
+      listarCuentasAuth()
+    ]);
+    const miembros = new Map();
+    miembrosSnap.docs.forEach(doc => {
+      const data = doc.data() || {};
+      miembros.set(doc.id, data);
+      if (data.uid) miembros.set(String(data.uid), data);
+    });
+    const cursos = new Map(cursosSnap.docs.map(doc => [doc.id, doc.data() || {}]));
+    const ahora = Date.now();
+    const filas = progresoSnap.docs.map(doc => {
+      const progreso = doc.data() || {};
+      const oferta = progreso.ofertaVip || {};
+      if (!oferta.estado) return null;
+      const perfil = miembros.get(doc.id);
+      const cuenta = cuentasAuth.get(doc.id);
+      // Igual que en el reporte de pruebas: no mostramos restos de cuentas
+      // eliminadas como si fueran personas disponibles para contactar.
+      if (!perfil && !cuenta) return null;
+      const creadaAt = fechaISO(oferta.creadaAt);
+      const enviarDespuesDe = fechaISO(oferta.enviarDespuesDe);
+      const correoEnviadoAt = fechaISO(oferta.correoEnviadoAt);
+      const venceAt = fechaISO(oferta.venceAt);
+      const activadaAt = fechaISO(oferta.activadaAt);
+      const vipHasta = fechaISO(oferta.vipHasta);
+      const tienePago = !!(perfil && (perfil.activa === true || perfil.activo === true) &&
+        perfil.esRegalo !== true && perfil.plan !== 'regalo' && perfil.plan !== 'regalo-3-dias');
+      let estado = oferta.estado;
+      if (tienePago && activadaAt) estado = 'convertida';
+      else if (tienePago) estado = 'pago-sin-activar';
+      else if (oferta.estado === 'activada' && vipHasta && new Date(vipHasta).getTime() <= ahora) estado = 'terminada';
+      else if (oferta.estado === 'enviada' && venceAt && new Date(venceAt).getTime() <= ahora) estado = 'vencida';
+      return {
+        uid: doc.id,
+        nombre: String(perfil?.nombre || perfil?.displayName || cuenta?.nombre || perfil?.email || cuenta?.email || 'Miembro'),
+        email: String(perfil?.email || cuenta?.email || ''),
+        curso: String(cursos.get(String(oferta.cursoId || progreso.cursoPrueba))?.titulo || 'Curso eliminado'),
+        estado,
+        creadaAt,
+        enviarDespuesDe,
+        correoEnviadoAt,
+        venceAt,
+        activadaAt,
+        vipHasta,
+        orden: (oferta.activadaAt?.toDate?.() || oferta.correoEnviadoAt?.toDate?.() || oferta.creadaAt?.toDate?.() || new Date(0)).getTime()
+      };
+    }).filter(Boolean).sort((a, b) => b.orden - a.orden);
+    const contar = estado => filas.filter(x => x.estado === estado).length;
+    const aceptadas = filas.filter(x => ['activada', 'terminada', 'convertida'].includes(x.estado)).length;
+    const enviados = filas.filter(x => ['enviada', 'vencida', 'activada', 'terminada', 'convertida', 'pago-sin-activar'].includes(x.estado)).length;
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      totales: {
+        total: filas.length,
+        pendientes: contar('programada'),
+        enviados,
+        aceptadas,
+        activas: contar('activada'),
+        vencidas: contar('vencida'),
+        terminadas: contar('terminada'),
+        convertidas: contar('convertida'),
+        pagoSinActivar: contar('pago-sin-activar'),
+        tasaAceptacion: enviados ? Math.round((aceptadas / enviados) * 100) : 0,
+        tasaConversion: aceptadas ? Math.round((contar('convertida') / aceptadas) * 100) : 0
+      },
+      filas: filas.slice(0, 250).map(({ orden, ...fila }) => fila)
+    });
+  } catch (error) {
+    console.error('[Bunny ofertas-vip]', error);
+    return res.status(500).json({ error: 'No se pudo obtener el control de Pruebas VIP' });
+  }
+});
+
 // Programa la invitación después de que la persona agota su parte gratuita.
 // No activa nada aquí: el correo sale 24 h después y el usuario debe aceptar.
 router.post('/oferta-vip', async (req, res) => {
