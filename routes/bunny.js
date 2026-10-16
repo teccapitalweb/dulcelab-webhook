@@ -69,6 +69,36 @@ function puntajeTitulo(a, b) {
   return union.size ? inter / union.size : 0;
 }
 
+// ── Catálogo de videos que salen de los cursos publicados en Firestore ──
+// Los cursos guardan cada clase como `videoId` o como la URL de Bunny (…/embed/{biblioteca}/{video}).
+// Así un curso nuevo funciona en cuanto se sube desde el admin, sin tocar el código.
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+function extraerVideo(sesion) {
+  if (!sesion) return null;
+  if (sesion.videoId && UUID_RE.test(String(sesion.videoId))) return { videoId: String(sesion.videoId).match(UUID_RE)[0], libId: null };
+  const u = String(sesion.url || '');
+  const m = /mediadelivery\.net\/(?:embed|play)\/(\d+)\/([0-9a-f-]{36})/i.exec(u);
+  if (m) return { videoId: m[2], libId: m[1] };
+  if (UUID_RE.test(u) && !/^https?:/i.test(u)) return { videoId: u.match(UUID_RE)[0], libId: null };
+  return null;
+}
+let catalogoCache = { mapa: new Map(), vence: 0 };
+async function catalogoCursos() {
+  if (catalogoCache.vence > Date.now()) return catalogoCache.mapa;
+  const mapa = new Map();
+  const snap = await db.collection('cursos').get();
+  snap.forEach((doc) => {
+    const c = doc.data() || {};
+    const ses = Array.isArray(c.sesiones) ? c.sesiones : [];
+    ses.forEach((s, i) => {
+      const v = extraerVideo(s);
+      if (v && !mapa.has(v.videoId)) mapa.set(v.videoId, { libId: v.libId, cursoId: doc.id, indice: i, total: ses.length, proximamente: c.marcarProximamente === true });
+    });
+  });
+  catalogoCache = { mapa, vence: Date.now() + 60_000 };
+  return mapa;
+}
+
 let muestraCache = { videoId: null, vence: 0 };
 
 async function obtenerVideoMuestra() {
@@ -80,6 +110,8 @@ async function obtenerVideoMuestra() {
     const curso = doc.data() || {};
     if (curso.marcarProximamente === true) continue;
     const primera = Array.isArray(curso.sesiones) && curso.sesiones.length > 1 ? curso.sesiones[0] : null; // la última clase nunca es muestra
+    const dinamico = extraerVideo(primera);
+    if (dinamico) { videoId = dinamico.videoId; break; }
     if (!primera && !(curso.clases || []).length) continue;
 
     if (primera?.videoId && videosPermitidos.has(primera.videoId)) {
@@ -117,15 +149,11 @@ async function verificarUsuario(req) {
 // Cada persona sin membresía elige UN curso (se guarda en progreso/{uid}.cursoPrueba y ya no cambia).
 // De ese curso puede ver todas las clases MENOS la última, sin importar cuántas tenga. Esto se valida aquí,
 // no en el navegador, para que la última clase no se pueda abrir sin membresía.
-async function videoEsDePrueba(uid, videoId) {
+async function videoEsDePrueba(uid, videoId, info) {
   const prog = await db.collection('progreso').doc(uid).get();
   const cursoId = prog.exists ? prog.data().cursoPrueba : null;
-  if (!cursoId) return false;
-  const doc = await db.collection('cursos').doc(String(cursoId)).get();
-  if (!doc.exists) return false;
-  const ses = Array.isArray(doc.data().sesiones) ? doc.data().sesiones : [];
-  const i = ses.findIndex(x => x && (x.videoId === videoId || x.url === videoId));
-  return i >= 0 && i < ses.length - 1;
+  if (!cursoId || !info) return false;
+  return info.cursoId === String(cursoId) && info.indice < info.total - 1;
 }
 
 // POST /api/bunny/curso-prueba · { cursoId } → { cursoId }. La primera elección gana; las siguientes devuelven la guardada.
@@ -393,7 +421,8 @@ router.post('/embed-token', async (req, res) => {
     }
 
     const videoId = String(req.body?.videoId || '').trim();
-    if (!videosPermitidos.has(videoId)) {
+    const info = (await catalogoCursos()).get(videoId) || null;
+    if (!info && !videosPermitidos.has(videoId)) {
       return res.status(404).json({ error: 'Video no encontrado en el catálogo de DulceLab Food' });
     }
 
@@ -411,7 +440,7 @@ router.post('/embed-token', async (req, res) => {
     }
 
     let esPrueba = false;
-    if (usuario && !tieneAcceso) esPrueba = await videoEsDePrueba(usuario.uid, videoId);
+    if (usuario && !tieneAcceso) esPrueba = await videoEsDePrueba(usuario.uid, videoId, info);
 
     if (!esMuestra && !tieneAcceso && !esPrueba) {
       return res.status(403).json({ error: 'Membresía requerida' });
@@ -421,7 +450,7 @@ router.post('/embed-token', async (req, res) => {
     const token = createHash('sha256')
       .update(env.bunnyTokenAuthKey + videoId + expires)
       .digest('hex');
-    const embedUrl = `https://iframe.mediadelivery.net/embed/${env.bunnyStreamLibraryId}/${videoId}?token=${token}&expires=${expires}`;
+    const embedUrl = `https://iframe.mediadelivery.net/embed/${(info && info.libId) || env.bunnyStreamLibraryId}/${videoId}?token=${token}&expires=${expires}`;
 
     res.set('Cache-Control', 'no-store');
     return res.json({ embedUrl, expires, esMuestra: esMuestra || esPrueba });
