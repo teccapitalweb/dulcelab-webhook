@@ -96,26 +96,14 @@ export async function getMembership(uid) {
     expiraEn: expira ? expira.toISOString() : null
   };
 
-  // Regalo de reactivación: 3 días de acceso total, sin certificados. Vive
-  // separado de /miembros para nunca confundirse con una suscripción pagada.
-  const progreso = await db.collection('progreso').doc(uid).get();
-  const oferta = progreso.exists ? (progreso.data().ofertaVip || {}) : {};
-  const hasta = oferta.vipHasta?.toDate?.();
-  const regaloActivo = hasta && hasta.getTime() > Date.now();
   return {
-    activa: !!regaloActivo,
-    activo: !!regaloActivo,
-    plan: regaloActivo ? 'regalo-3-dias' : null,
-    esRegalo: !!regaloActivo,
-    certificadoBloqueado: !!regaloActivo,
+    activa: false,
+    activo: false,
+    plan: null,
+    esRegalo: false,
     proximaRenovacion: null,
-    expiraEn: hasta ? hasta.toISOString() : null,
-    ofertaVip: {
-      estado: oferta.estado || null,
-      venceAt: oferta.venceAt?.toDate?.()?.toISOString() || null,
-      vipHasta: hasta ? hasta.toISOString() : null
-    },
-    motivo: regaloActivo ? 'regalo-activo' : 'sin-membresia'
+    expiraEn: null,
+    motivo: 'sin-membresia'
   };
 }
 

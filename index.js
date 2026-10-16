@@ -39,7 +39,6 @@ import directorioRoutes from './routes/directorio.js';
 
 // Cron
 import { syncNewsData } from './services/news.js';
-import { procesarOfertasVip } from './services/oferta-vip.js';
 
 const app = express();
 // MODIFICADO (revisión de seguridad): "origin: true" refleja cualquier
@@ -85,12 +84,6 @@ app.use('/', healthRoutes);
 cron.schedule('0 13 * * *', () => {
   console.log('⏰ Cron diario noticias · 7am CDMX');
   syncNewsData().catch(e => console.error('Cron error:', e));
-}, { timezone: 'UTC' });
-
-// Invitaciones de 3 días VIP: se revisan cada hora para respetar las 24 h
-// de espera y la ventana de 48 h sin depender de una visita del usuario.
-cron.schedule('5 * * * *', () => {
-  procesarOfertasVip().catch(e => console.error('Cron oferta VIP:', e));
 }, { timezone: 'UTC' });
 
 app.listen(env.port, () => {

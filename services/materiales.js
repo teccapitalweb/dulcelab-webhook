@@ -36,11 +36,6 @@ async function tieneMembresiaActiva(uid) {
   let activa = !!m.activa;
   const expira = m.expiraEn?.toDate?.();
   if (activa && expira && expira.getTime() < Date.now()) activa = false;
-  if (!activa) {
-    const progreso = await db.collection('progreso').doc(uid).get();
-    const hasta = progreso.exists ? progreso.data()?.ofertaVip?.vipHasta?.toDate?.() : null;
-    activa = !!(hasta && hasta.getTime() > Date.now());
-  }
   return { activa, fechaAlta: m.fechaAlta?.toDate?.() || null };
 }
 
