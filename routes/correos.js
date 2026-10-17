@@ -6,7 +6,7 @@
 
 import express from 'express';
 import admin from 'firebase-admin';
-import { darDeBaja, tokenValido, ofertaVigente, resumenSecuencia, enviarPruebas } from '../services/secuencia-correos.js';
+import { darDeBaja, tokenValido, ofertaVigente, resumenSecuencia, enviarPruebas, darOfertaDePrueba } from '../services/secuencia-correos.js';
 
 const ADMIN_EMAILS = ['teccapitalweb@gmail.com'];
 async function adminDe(req) {
@@ -59,6 +59,17 @@ router.get('/resumen', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     return res.json(await resumenSecuencia());
   } catch (err) { console.error('❌ /api/correos/resumen error:', err.message); return res.status(500).json({ error: 'No se pudo calcular' }); }
+});
+
+router.post('/oferta-prueba', express.json(), async (req, res) => {
+  try {
+    if (!(await adminDe(req))) return res.status(403).json({ error: 'Solo un admin' });
+    const monto = Number(req.body && req.body.monto);
+    if (![0, 50, 100].includes(monto)) return res.status(400).json({ error: 'monto-invalido' });
+    const r = await darOfertaDePrueba(req.body && req.body.email, monto);
+    if (r.error) return res.status(r.error === 'cuenta-no-encontrada' ? 404 : 409).json(r);
+    return res.json(r);
+  } catch (err) { console.error('❌ /api/correos/oferta-prueba error:', err.message); return res.status(500).json({ error: 'No se pudo dar la oferta' }); }
 });
 
 router.post('/prueba', async (req, res) => {

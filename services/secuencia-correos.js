@@ -200,6 +200,7 @@ export async function resumenSecuencia() {
   snap.forEach((doc) => {
     const d = doc.data();
     if (doc.id === '_meta') { r.inicio = d.inicio && d.inicio.toDate ? d.inicio.toDate().toISOString() : null; return; }
+    if (d.esPrueba) return; // las ofertas de prueba del admin no cuentan
     r.registradas++;
     if (d.correo1At) r.correo1++;
     if (d.correo2At) r.correo2++;
@@ -223,6 +224,25 @@ export async function enviarPruebas(to, nombre = 'Ana') {
     resultados.push({ tipo, ok: !!r.ok });
   }
   return resultados;
+}
+
+// Para que el admin pruebe el cobro con descuento sin esperar las horas de la secuencia.
+// monto 50 o 100 = da esa oferta por 1 hora; monto 0 = la quita. No mete a la cuenta en los correos automáticos.
+export async function darOfertaDePrueba(email, monto) {
+  const u = await admin.auth().getUserByEmail(String(email || '').trim().toLowerCase()).catch(() => null);
+  if (!u) return { error: 'cuenta-no-encontrada' };
+  if (await yaPago(u.uid)) return { error: 'ya-es-miembro' };
+  const m = Number(monto);
+  const vence = Timestamp.fromDate(new Date(Date.now() + HORA));
+  const datos = {
+    uid: u.uid, email: (u.email || '').toLowerCase(), nombre: u.displayName || '',
+    estado: 'prueba', esPrueba: true, paso: 3,
+    descuento1VenceAt: m === DESCUENTO_1 ? vence : FieldValue.delete(),
+    descuento2VenceAt: m === DESCUENTO_2 ? vence : FieldValue.delete(),
+    pruebaAt: FieldValue.serverTimestamp()
+  };
+  await db.collection(COL).doc(u.uid).set(datos, { merge: true });
+  return { ok: true, email: datos.email, monto: [DESCUENTO_1, DESCUENTO_2].includes(m) ? m : 0, venceAt: [DESCUENTO_1, DESCUENTO_2].includes(m) ? vence.toDate().toISOString() : null };
 }
 
 export async function darDeBaja(uid) {
