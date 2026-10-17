@@ -9,7 +9,7 @@ import { env } from '../config/env.js';
 const FROM = env.mailFrom;                 // 'DulceLab Food <noreply@dulcelabfood.com>'
 const PANEL_URL = env.panelUrl;
 
-async function enviarCorreo({ to, subject, html, attachments }) {
+async function enviarCorreo({ to, subject, html, attachments, headers }) {
   if (!env.resendApiKey) {
     console.warn('⚠️  RESEND_API_KEY no configurada · correo no enviado');
     return { ok: false, reason: 'no-api-key' };
@@ -21,6 +21,7 @@ async function enviarCorreo({ to, subject, html, attachments }) {
   try {
     const body = { from: FROM, to, subject, html };
     if (Array.isArray(attachments) && attachments.length) body.attachments = attachments;
+    if (headers && typeof headers === 'object') body.headers = headers;
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {

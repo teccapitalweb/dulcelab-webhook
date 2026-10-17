@@ -12,6 +12,7 @@ import {
 import { enviarBienvenida } from './email.js';
 import { db, FieldValue } from '../config/firebase.js';
 import { clasificarOrigen, registrarCompra, vidValido } from './metricas.js';
+import { marcarPagado } from './secuencia-correos.js';
 
 // ───────────────────────────────────────────────────────────────
 // Compatibilidad con versiones nuevas de la API de Stripe.
@@ -110,6 +111,10 @@ export async function handleCheckoutCompleted(session) {
   } catch (e) { console.warn('⚠️  No se pudo anotar la sesión:', e.message); }
 
   // Métricas: de qué medio llegó quien compró (no debe estorbar a la activación)
+  try {
+    await marcarPagado(uid, session.metadata?.oferta_monto);
+  } catch (e) { console.warn('⚠️  No se pudo cerrar la secuencia de correos:', e.message); }
+
   try {
     await registrarCompra({
       vid: session.metadata?.vid, sessionId: session.id, plan,
@@ -220,13 +225,26 @@ function metaOrigen(vid, origen) {
 // MODIFICADO (patrón SYNOVA): en vez de un Price ID fijo, arma el precio en
 // el momento leyendo config/club — cambiar el precio en vip-admin cambia el
 // cobro real desde la siguiente suscripción, sin tocar Stripe ni Railway.
-export async function createCheckoutSession({ plan, uid, email, vid, origen }) {
+// Cupón de «primer mes» ($50 o $100 menos). Se crea una vez y se reutiliza: duration 'once' = solo la primera factura.
+async function cuponPrimerMes(monto) {
+  const id = `dulcelab-primer-mes-${monto}`;
+  try { return (await stripe.coupons.retrieve(id)).id; } catch (e) { /* no existe todavía */ }
+  const c = await stripe.coupons.create({
+    id, amount_off: Math.round(monto * 100), currency: 'mxn', duration: 'once',
+    name: `DulceLab · $${monto} de descuento en el primer mes`, metadata: { source: SOURCE }
+  });
+  return c.id;
+}
+
+export async function createCheckoutSession({ plan, uid, email, vid, origen, descuento }) {
   if (!['mensual', 'anual'].includes(plan)) {
     throw new Error('Plan inválido (debe ser mensual o anual)');
   }
   const { precioMes, precioAno } = await leerPreciosConfig();
   const montoMXN = plan === 'mensual' ? precioMes : precioAno;
   const interval = plan === 'mensual' ? 'month' : 'year';
+  // El descuento solo existe para el plan mensual y para quien lo tiene vigente (lo valida la ruta antes de llamar aquí)
+  const descuentoCupon = (plan === 'mensual' && Number(descuento) > 0 && montoMXN - Number(descuento) > 0) ? await cuponPrimerMes(Number(descuento)) : null;
 
   const session = await stripe.checkout.sessions.create({
     ui_mode: 'embedded',
@@ -243,10 +261,11 @@ export async function createCheckoutSession({ plan, uid, email, vid, origen }) {
       },
       quantity: 1
     }],
-    allow_promotion_codes: true,                       // campo de cupón en el checkout
+    // Con descuento de la secuencia de correos se aplica el cupón de primer mes (Stripe no permite el campo de códigos a la vez).
+    ...(descuentoCupon ? { discounts: [{ coupon: descuentoCupon }] } : { allow_promotion_codes: true }),
     client_reference_id: uid || undefined,
     customer_email: email || undefined,
-    metadata: { plan, uid: uid || '', source: SOURCE, precioAlCobrar: String(montoMXN), ...metaOrigen(vid, origen) }, // ← marca de proyecto
+    metadata: { plan, uid: uid || '', source: SOURCE, precioAlCobrar: String(montoMXN), ...(descuentoCupon ? { oferta_monto: String(descuento) } : {}), ...metaOrigen(vid, origen) }, // ← marca de proyecto
     subscription_data: {
       metadata: { plan, uid: uid || '', source: SOURCE }
     },

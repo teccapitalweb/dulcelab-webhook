@@ -35,6 +35,8 @@ import certificadosRoutes from './routes/certificados.js';
 import materialesRoutes from './routes/materiales.js';
 import encuestaRoutes from './routes/encuesta.js';
 import metricasRoutes from './routes/metricas.js';
+import correosRoutes from './routes/correos.js';
+import { procesarSecuencia } from './services/secuencia-correos.js';
 import directorioRoutes from './routes/directorio.js';
 
 // Cron
@@ -74,6 +76,7 @@ app.use('/api/bunny', bunnyRoutes);
 app.use('/api/materiales', materialesRoutes);
 app.use('/api/encuesta', encuestaRoutes);
 app.use('/api/metricas', metricasRoutes);
+app.use('/api/correos', correosRoutes);
 app.use('/api/directorio', directorioRoutes);
 app.use('/api/regalo-bienvenida', regaloRoutes);
 app.use('/api/biblioteca', bibliotecaRoutes);
@@ -85,6 +88,13 @@ cron.schedule('0 13 * * *', () => {
   console.log('⏰ Cron diario noticias · 7am CDMX');
   syncNewsData().catch(e => console.error('Cron error:', e));
 }, { timezone: 'UTC' });
+
+// Recordatorios de registro (beneficios y descuentos): se revisan cada hora, minuto 10.
+cron.schedule('10 * * * *', () => {
+  procesarSecuencia().catch(e => console.error('Cron secuencia de correos:', e));
+}, { timezone: 'UTC' });
+// Al arrancar se fija desde cuándo cuentan los registros nuevos.
+setTimeout(() => { procesarSecuencia().catch(e => console.error('Secuencia de correos (arranque):', e)); }, 20000);
 
 app.listen(env.port, () => {
   console.log(`🚀 DulceLab Food webhook listening on port ${env.port}`);

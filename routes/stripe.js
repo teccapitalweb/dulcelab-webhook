@@ -4,6 +4,7 @@
 
 import express from 'express';
 import admin from 'firebase-admin';
+import { ofertaVigente } from '../services/secuencia-correos.js';
 import {
   verifyWebhookSignature, processWebhookEvent,
   createCheckoutSession, retrieveSession, confirmarSesionPagada,
@@ -83,7 +84,17 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 router.post('/checkout', express.json(), async (req, res) => {
   try {
     const { plan, uid, email, vid, origen } = req.body;
-    const result = await createCheckoutSession({ plan, uid, email, vid, origen });
+    // Descuento de los correos de recordatorio: solo si la persona inició sesión (token) y es su propio uid.
+    let descuento = 0;
+    try {
+      const h = req.headers.authorization || '';
+      const tk = h.startsWith('Bearer ') ? h.slice(7) : null;
+      if (tk && plan === 'mensual' && uid) {
+        const dec = await admin.auth().verifyIdToken(tk);
+        if (dec.uid === uid) { const of = await ofertaVigente(uid); descuento = of ? of.monto : 0; }
+      }
+    } catch (e) { descuento = 0; }
+    const result = await createCheckoutSession({ plan, uid, email, vid, origen, descuento });
     res.json(result);
   } catch (err) {
     console.error('❌ /stripe/checkout error:', err.message);
