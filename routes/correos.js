@@ -6,7 +6,7 @@
 
 import express from 'express';
 import admin from 'firebase-admin';
-import { darDeBaja, tokenValido, ofertaVigente, resumenSecuencia, enviarPruebas, darOfertaDePrueba } from '../services/secuencia-correos.js';
+import { darDeBaja, tokenValido, ofertaVigente, resumenSecuencia, enviarPruebas, darOfertaDePrueba, contarExistentes, incluirExistentes } from '../services/secuencia-correos.js';
 
 const ADMIN_EMAILS = ['teccapitalweb@gmail.com'];
 async function adminDe(req) {
@@ -70,6 +70,21 @@ router.post('/oferta-prueba', express.json(), async (req, res) => {
     if (r.error) return res.status(r.error === 'cuenta-no-encontrada' ? 404 : 409).json(r);
     return res.json(r);
   } catch (err) { console.error('❌ /api/correos/oferta-prueba error:', err.message); return res.status(500).json({ error: 'No se pudo dar la oferta' }); }
+});
+
+router.get('/existentes', async (req, res) => {
+  try {
+    if (!(await adminDe(req))) return res.status(403).json({ error: 'Solo un admin' });
+    res.set('Cache-Control', 'no-store');
+    return res.json(await contarExistentes());
+  } catch (err) { console.error('❌ /api/correos/existentes error:', err.message); return res.status(500).json({ error: 'No se pudo contar' }); }
+});
+
+router.post('/existentes/incluir', async (req, res) => {
+  try {
+    if (!(await adminDe(req))) return res.status(403).json({ error: 'Solo un admin' });
+    return res.json(await incluirExistentes());
+  } catch (err) { console.error('❌ /api/correos/existentes/incluir error:', err.message); return res.status(500).json({ error: 'No se pudieron incluir' }); }
 });
 
 router.post('/prueba', async (req, res) => {

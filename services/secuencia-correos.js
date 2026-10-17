@@ -193,6 +193,60 @@ export async function ofertaVigente(uid) {
   return { monto, precioNormal: precioMes, precioFinal: precioMes - monto, venceAt: new Date(vence).toISOString() };
 }
 
+// ── Cuentas que ya estaban registradas antes de encender la secuencia y nunca han pagado ──
+// No entran solas: el admin ve cuántas son y decide incluirlas (así no se manda un golpe de correos sin avisar).
+async function elegiblesExistentes() {
+  const inicio = await inicioDeLaSecuencia();
+  const candidatas = [];
+  let token;
+  do {
+    const page = await admin.auth().listUsers(1000, token);
+    page.users.forEach((u) => {
+      const creada = u.metadata && u.metadata.creationTime ? new Date(u.metadata.creationTime) : null;
+      if (creada && creada.getTime() < inicio.getTime() && u.email && u.emailVerified) {
+        candidatas.push({ uid: u.uid, email: u.email.toLowerCase(), nombre: u.displayName || '', creada });
+      }
+    });
+    token = page.pageToken;
+  } while (token);
+  if (!candidatas.length) return [];
+
+  const refsSec = candidatas.map((c) => db.collection(COL).doc(c.uid));
+  const refsMiembro = candidatas.map((c) => db.collection('miembros').doc(c.uid));
+  const [secs, miembros] = await Promise.all([db.getAll(...refsSec), db.getAll(...refsMiembro)]);
+  return candidatas.filter((c, i) => {
+    if (secs[i].exists) return false;                       // ya está en la secuencia
+    const m = miembros[i];
+    if (!m.exists) return true;                              // sin ficha de miembro = nunca pagó
+    const d = m.data() || {};
+    return !(d.activa === true || d.plan || d.stripeSubscriptionId || d.stripeCustomerId || d.fechaAlta);
+  });
+}
+
+export async function contarExistentes() {
+  return { elegibles: (await elegiblesExistentes()).length };
+}
+
+export async function incluirExistentes() {
+  const lista = await elegiblesExistentes();
+  let n = 0;
+  for (let i = 0; i < lista.length; i += 400) {
+    const batch = db.batch();
+    lista.slice(i, i + 400).forEach((u) => {
+      batch.set(db.collection(COL).doc(u.uid), {
+        uid: u.uid, email: u.email, nombre: u.nombre,
+        registradoAt: Timestamp.fromDate(u.creada),
+        estado: 'activa', paso: 0, intentos: 0, esExistente: true,
+        creadoAt: FieldValue.serverTimestamp(), incluidaAt: FieldValue.serverTimestamp()
+      });
+      n++;
+    });
+    await batch.commit();
+  }
+  console.log(`📨 Secuencia: ${n} cuenta(s) ya registrada(s) incluida(s)`);
+  return { incluidas: n };
+}
+
 // Resumen para el admin: cuántas personas van en cada paso.
 export async function resumenSecuencia() {
   const snap = await db.collection(COL).get();
